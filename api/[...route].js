@@ -170,10 +170,13 @@ function handleScan(req, res) {
   const waktu = formatJam(now);
 
   if (!entry) {
+    // Bandingkan menggunakan waktu Jakarta (WIB), bukan waktu server (biasanya UTC),
+    // supaya "Batas jam masuk" yang diisi admin (mis. 08:00) konsisten dengan jam WIB asli.
+    const nowJakarta = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     const [jh, jm] = db.settings.jamMasuk.split(':').map(Number);
-    const batas = new Date(now);
+    const batas = new Date(nowJakarta);
     batas.setHours(jh, jm + (db.settings.toleransi || 0), 0, 0);
-    const statusMasuk = now <= batas ? 'Tepat waktu' : 'Terlambat';
+    const statusMasuk = nowJakarta <= batas ? 'Tepat waktu' : 'Terlambat';
 
     entry = {
       pesertaId: p.id,
