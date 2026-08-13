@@ -89,6 +89,19 @@
   .pill.tepat{background:var(--green-dim);color:var(--green);}
   .pill.terlambat{background:var(--coral-dim);color:var(--coral);}
   .pill.dash{color:var(--ink-soft);}
+  .pill.izin{background:var(--lime-dim);color:var(--lime);}
+  .pill.menunggu{background:#3D3520;color:#E8C752;}
+  .pill.ditolak{background:var(--coral-dim);color:var(--coral);}
+
+  .izin-item{padding:10px 0;border-bottom:1px solid var(--line);}
+  .izin-item:last-child{border-bottom:none;}
+  .izin-item-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;}
+  .izin-item-meta{font-size:11.5px;color:var(--ink-soft);}
+  .izin-item-alasan{font-size:12px;color:var(--ink);margin-top:4px;line-height:1.4;}
+  .izin-item-actions{display:flex;gap:6px;margin-top:8px;}
+  .mini-btn.approve:hover{border-color:var(--green);color:var(--green);}
+  textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:'Inter';font-size:13.5px;resize:vertical;min-height:60px;}
+  textarea:focus{outline:2px solid var(--lime);outline-offset:1px;}
   .empty-row td{text-align:center;color:var(--ink-soft);padding:22px;font-size:12.5px;}
 
   /* ---- Kiosk ---- */
@@ -210,6 +223,31 @@
       </div>
 
       <div class="side-card">
+        <h2>Ajukan Izin</h2>
+        <p class="desc">Tidak bisa hadir? Ajukan izin, sakit, atau cuti di sini. Kalau disetujui admin, hari itu tidak dihitung alpha.</p>
+        <div class="field-pair" style="margin-bottom:10px;">
+          <div><label>Tanggal</label><input type="date" id="izinTanggal"></div>
+          <div><label>Jenis</label>
+            <select id="izinJenis">
+              <option value="Izin">Izin</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Cuti">Cuti</option>
+            </select>
+          </div>
+        </div>
+        <label>Alasan</label>
+        <textarea id="izinAlasan" placeholder="Jelaskan alasanmu secara singkat" style="margin-bottom:10px;"></textarea>
+        <button class="btn ghost" id="submitIzin">Ajukan Izin</button>
+        <div id="izinSubmitMsg"></div>
+      </div>
+
+      <div class="side-card">
+        <h2>Riwayat Pengajuan Izin</h2>
+        <p class="desc">Status pengajuan izin/sakit/cuti yang pernah kamu kirim.</p>
+        <div id="izinRiwayatList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
+      </div>
+
+      <div class="side-card">
         <h2>Riwayat Kehadiran</h2>
         <p class="desc">Rekap jam masuk & pulangmu, biar tahu hari ini atau hari-hari sebelumnya kamu tepat waktu atau terlambat.</p>
         <table>
@@ -270,6 +308,12 @@
           </div>
           <button class="btn ghost" id="saveCredentials">Ganti Kredensial</button>
           <div id="credentialMsg"></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Pengajuan Izin <span id="izinPendingCount" class="idcard-tag" style="display:none;"></span></h2>
+          <p class="desc">Setujui atau tolak pengajuan izin/sakit/cuti dari peserta magang.</p>
+          <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
         </div>
 
         <div class="side-card">
@@ -390,6 +434,10 @@
       renderCard(currentPeserta);
       viewBadge.classList.add('active');
       loadHistory(currentPeserta.id);
+      loadIzinRiwayat(currentPeserta.id);
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById('izinTanggal').min = today;
+      document.getElementById('izinTanggal').value = today;
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
     }
@@ -414,16 +462,65 @@
       return;
     }
     body.innerHTML = data.history.map(r=>{
-      const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
-      const pulangCell = r.jamPulang
-        ? `${r.jamPulang}${r.pulangManual ? ' <span class="pill dash">manual</span>' : ''}`
-        : '<span class="pill dash">belum pulang</span>';
-      return `<tr><td>${formatTanggalSingkat(r.tanggal)}</td><td class="mono">${r.jamMasuk}</td><td>${statusPill}</td><td class="mono">${pulangCell}</td></tr>`;
+      const statusPill = `<span class="pill ${statusPillClass(r.statusMasuk)}">${r.statusMasuk}</span>`;
+      const pulangCell = r.sumber === 'izin'
+        ? '<span class="pill dash">—</span>'
+        : r.jamPulang
+          ? `${r.jamPulang}${r.pulangManual ? ' <span class="pill dash">manual</span>' : ''}`
+          : '<span class="pill dash">belum pulang</span>';
+      return `<tr><td>${formatTanggalSingkat(r.tanggal)}</td><td class="mono">${r.jamMasuk || '—'}</td><td>${statusPill}</td><td class="mono">${pulangCell}</td></tr>`;
     }).join('');
+  }
+  function statusPillClass(status){
+    if(status==='Tepat waktu') return 'tepat';
+    if(status==='Terlambat') return 'terlambat';
+    if(status==='Izin' || status==='Sakit' || status==='Cuti') return 'izin';
+    return 'dash';
   }
   function formatTanggalSingkat(tk){
     const d = new Date(tk + 'T00:00:00');
     return d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+  }
+
+  // ---------- izin (peserta) ----------
+  document.getElementById('submitIzin').addEventListener('click', async ()=>{
+    const tanggal = document.getElementById('izinTanggal').value;
+    const jenis = document.getElementById('izinJenis').value;
+    const alasan = document.getElementById('izinAlasan').value.trim();
+    const msg = document.getElementById('izinSubmitMsg');
+    msg.innerHTML = '';
+    if(!currentPeserta) return;
+    const { ok, data } = await api('/api/izin', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ pesertaId: currentPeserta.id, tanggal, jenis, alasan })
+    });
+    if(ok && data.ok){
+      document.getElementById('izinAlasan').value = '';
+      msg.innerHTML = '<div class="msg-ok">Pengajuan izin terkirim, menunggu persetujuan admin.</div>';
+      loadIzinRiwayat(currentPeserta.id);
+    } else {
+      msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal mengajukan izin.')}</div>`;
+    }
+  });
+
+  async function loadIzinRiwayat(pesertaId){
+    const el = document.getElementById('izinRiwayatList');
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div>';
+    const { ok, data } = await api('/api/izin?pesertaId=' + encodeURIComponent(pesertaId));
+    if(!ok || !data.izin || data.izin.length===0){
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada pengajuan izin.</div>';
+      return;
+    }
+    el.innerHTML = data.izin.map(r=>{
+      const statusClass = r.status==='Disetujui' ? 'izin' : r.status==='Ditolak' ? 'ditolak' : 'menunggu';
+      return `<div class="izin-item">
+        <div class="izin-item-top">
+          <span>${escapeHtml(r.jenis)} · ${formatTanggalSingkat(r.tanggal)}</span>
+          <span class="pill ${statusClass}">${escapeHtml(r.status)}</span>
+        </div>
+        <div class="izin-item-alasan">${escapeHtml(r.alasan)}</div>
+      </div>`;
+    }).join('');
   }
 
   // ---------- kiosk (admin) ----------
@@ -435,6 +532,75 @@
     }
     await refreshToday();
     await refreshRoster();
+    await refreshIzinPending();
+  }
+
+  async function refreshIzinPending(){
+    const { ok, data } = await api('/api/izin?status=Menunggu');
+    if(!ok) return;
+    renderIzinPending(data.izin || []);
+  }
+  function renderIzinPending(list){
+    const el = document.getElementById('izinPendingList');
+    const countTag = document.getElementById('izinPendingCount');
+    if(list.length===0){
+      countTag.style.display = 'none';
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Tidak ada pengajuan yang menunggu persetujuan.</div>';
+      return;
+    }
+    countTag.style.display = 'inline-block';
+    countTag.textContent = list.length + ' menunggu';
+    el.innerHTML = '';
+    list.forEach(r=>{
+      const item = document.createElement('div');
+      item.className = 'izin-item';
+      item.innerHTML = `
+        <div class="izin-item-top">
+          <span>${escapeHtml(r.nama)}</span>
+          <span class="pill izin">${escapeHtml(r.jenis)}</span>
+        </div>
+        <div class="izin-item-meta">${formatTanggalSingkat(r.tanggal)}</div>
+        <div class="izin-item-alasan">${escapeHtml(r.alasan)}</div>
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'izin-item-actions';
+
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'mini-btn approve';
+      approveBtn.textContent = 'Setujui';
+      approveBtn.addEventListener('click', async ()=>{
+        const { ok, data } = await api('/api/izin-approve', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ izinId: r.id })
+        });
+        if(ok && data.ok){
+          await refreshIzinPending();
+          await refreshToday();
+        } else {
+          alert((data && data.message) || 'Gagal menyetujui izin.');
+        }
+      });
+      actions.appendChild(approveBtn);
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.className = 'mini-btn';
+      rejectBtn.textContent = 'Tolak';
+      rejectBtn.addEventListener('click', async ()=>{
+        const { ok, data } = await api('/api/izin-reject', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ izinId: r.id })
+        });
+        if(ok && data.ok){
+          await refreshIzinPending();
+        } else {
+          alert((data && data.message) || 'Gagal menolak izin.');
+        }
+      });
+      actions.appendChild(rejectBtn);
+
+      item.appendChild(actions);
+      el.appendChild(item);
+    });
   }
 
   async function refreshToday(){
@@ -450,6 +616,10 @@
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
         const rows = [];
+        if(r.sumber === 'izin'){
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td></tr>`);
+          return rows.join('');
+        }
         rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td></tr>`);
         if(r.jamPulang){
           rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td></tr>`);
@@ -457,8 +627,9 @@
         return rows.join('');
       }).join('');
     }
-    const masuk = log.length;
-    const pulang = log.filter(r=>r.jamPulang).length;
+    const hadir = log.filter(r=>r.sumber !== 'izin');
+    const masuk = hadir.length;
+    const pulang = hadir.filter(r=>r.jamPulang).length;
     document.getElementById('statMasuk').textContent = masuk;
     document.getElementById('statPulang').textContent = pulang;
   }

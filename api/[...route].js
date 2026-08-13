@@ -39,6 +39,10 @@ module.exports = (req, res) => {
     if (route === 'mark-pulang' && method === 'POST') return handleMarkPulang(req, res);
     if (route === 'today' && method === 'GET') return handleToday(req, res);
     if (route === 'history' && method === 'GET') return handleHistory(req, res);
+    if (route === 'izin' && method === 'GET') return handleIzinList(req, res);
+    if (route === 'izin' && method === 'POST') return handleIzinAjukan(req, res);
+    if (route === 'izin-approve' && method === 'POST') return handleIzinApprove(req, res);
+    if (route === 'izin-reject' && method === 'POST') return handleIzinReject(req, res);
 
     res.status(404).json({ ok: false, message: 'Endpoint tidak ditemukan: ' + route });
   } catch (e) {
@@ -169,6 +173,13 @@ function handleScan(req, res) {
   const now = new Date();
   const waktu = formatJam(now);
 
+  // Kalau hari ini sudah ada catatan izin/sakit/cuti yang disetujui tapi peserta
+  // ternyata tetap datang dan scan, catatan izin itu ditimpa jadi absen masuk asli.
+  if (entry && entry.sumber === 'izin') {
+    db.logs[tk] = db.logs[tk].filter((r) => r.pesertaId !== p.id);
+    entry = null;
+  }
+
   if (!entry) {
     // Bandingkan menggunakan waktu Jakarta (WIB), bukan waktu server (biasanya UTC),
     // supaya "Batas jam masuk" yang diisi admin (mis. 08:00) konsisten dengan jam WIB asli.
@@ -185,7 +196,8 @@ function handleScan(req, res) {
       jamMasuk: waktu,
       statusMasuk,
       jamPulang: null,
-      pulangManual: false
+      pulangManual: false,
+      sumber: 'scan'
     };
     db.logs[tk].push(entry);
     saveDB(db);
@@ -264,4 +276,128 @@ function handleHistory(req, res) {
     });
 
   res.status(200).json({ history: rows });
+}
+
+// ---------- izin ----------
+const JENIS_IZIN_VALID = ['Izin', 'Sakit', 'Cuti'];
+
+function handleIzinList(req, res) {
+  const db = getDB();
+  const pesertaId = req.q && req.q.pesertaId;
+  const status = req.q && req.q.status;
+
+  let rows = db.izin.slice();
+  if (pesertaId) rows = rows.filter((r) => r.pesertaId === pesertaId);
+  if (status) rows = rows.filter((r) => r.status === status);
+  rows.sort((a, b) => (a.diajukanPada < b.diajukanPada ? 1 : -1));
+
+  res.status(200).json({ izin: rows });
+}
+
+function handleIzinAjukan(req, res) {
+  const { pesertaId, tanggal, jenis, alasan } = req.body || {};
+  const db = getDB();
+
+  const p = db.roster.find((x) => x.id === pesertaId);
+  if (!p) {
+    res.status(404).json({ ok: false, message: 'Peserta tidak ditemukan.' });
+    return;
+  }
+  if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
+    res.status(400).json({ ok: false, message: 'Tanggal izin wajib diisi.' });
+    return;
+  }
+  if (!JENIS_IZIN_VALID.includes(jenis)) {
+    res.status(400).json({ ok: false, message: 'Jenis izin tidak valid.' });
+    return;
+  }
+  if (!alasan || !String(alasan).trim()) {
+    res.status(400).json({ ok: false, message: 'Alasan wajib diisi.' });
+    return;
+  }
+  const sudahAda = db.izin.find(
+    (r) => r.pesertaId === pesertaId && r.tanggal === tanggal && r.status !== 'Ditolak'
+  );
+  if (sudahAda) {
+    res.status(400).json({
+      ok: false,
+      message: 'Sudah ada pengajuan izin untuk tanggal tersebut.'
+    });
+    return;
+  }
+
+  const item = {
+    id: 'IZN-' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 900 + 100),
+    pesertaId,
+    nama: p.nama,
+    tanggal,
+    jenis,
+    alasan: String(alasan).trim(),
+    status: 'Menunggu',
+    diajukanPada: new Date().toISOString(),
+    diprosesPada: null
+  };
+  db.izin.push(item);
+  saveDB(db);
+  res.status(200).json({ ok: true, izin: item });
+}
+
+function handleIzinApprove(req, res) {
+  const { izinId } = req.body || {};
+  const db = getDB();
+  const item = db.izin.find((r) => r.id === izinId);
+  if (!item) {
+    res.status(404).json({ ok: false, message: 'Pengajuan izin tidak ditemukan.' });
+    return;
+  }
+  if (item.status !== 'Menunggu') {
+    res.status(400).json({ ok: false, message: 'Pengajuan ini sudah diproses sebelumnya.' });
+    return;
+  }
+
+  if (!db.logs[item.tanggal]) db.logs[item.tanggal] = [];
+  const bentrok = db.logs[item.tanggal].find((r) => r.pesertaId === item.pesertaId);
+  if (bentrok) {
+    res.status(400).json({
+      ok: false,
+      message: 'Peserta sudah punya catatan kehadiran (scan) di tanggal tersebut.'
+    });
+    return;
+  }
+
+  db.logs[item.tanggal].push({
+    pesertaId: item.pesertaId,
+    nama: item.nama,
+    tanggal: item.tanggal,
+    jamMasuk: null,
+    statusMasuk: item.jenis, // 'Izin' | 'Sakit' | 'Cuti'
+    jamPulang: null,
+    pulangManual: false,
+    sumber: 'izin',
+    alasan: item.alasan
+  });
+
+  item.status = 'Disetujui';
+  item.diprosesPada = new Date().toISOString();
+  saveDB(db);
+  res.status(200).json({ ok: true, izin: item });
+}
+
+function handleIzinReject(req, res) {
+  const { izinId } = req.body || {};
+  const db = getDB();
+  const item = db.izin.find((r) => r.id === izinId);
+  if (!item) {
+    res.status(404).json({ ok: false, message: 'Pengajuan izin tidak ditemukan.' });
+    return;
+  }
+  if (item.status !== 'Menunggu') {
+    res.status(400).json({ ok: false, message: 'Pengajuan ini sudah diproses sebelumnya.' });
+    return;
+  }
+
+  item.status = 'Ditolak';
+  item.diprosesPada = new Date().toISOString();
+  saveDB(db);
+  res.status(200).json({ ok: true, izin: item });
 }

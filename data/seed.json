@@ -9,5 +9,6 @@
     "adminUsername": "admin",
     "adminPassword": "admin123"
   },
-  "logs": {}
+  "logs": {},
+  "izin": []
 }
