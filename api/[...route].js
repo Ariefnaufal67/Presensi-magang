@@ -14,12 +14,21 @@
 //   POST /api/scan          -> handleScan
 //   GET  /api/history?pesertaId=... -> handleHistory
 
+const { parse: parseUrl } = require('url');
 const { getDB, saveDB, todayKey, formatJam } = require('../lib/store');
 
 module.exports = (req, res) => {
-  const routeParts = [].concat(req.query.route || []);
-  const route = routeParts.join('/');
+  // Route ditentukan langsung dari req.url, bukan dari req.query.route.
+  // (req.query.route dari fitur dynamic-route Vercel ternyata tidak selalu
+  // terisi dengan konsisten untuk Serverless Functions tanpa framework,
+  // jadi kita parse manual di sini supaya pasti jalan.)
+  const { pathname, query } = parseUrl(req.url, true);
+  const route = pathname.replace(/^\/api\/?/, '').replace(/\/$/, '');
   const method = req.method;
+
+  // Gabungkan query string dari URL dengan req.query bawaan (kalau ada),
+  // dipakai oleh handler yang butuh parameter seperti ?pesertaId= atau ?id=
+  req.q = Object.assign({}, query, req.query || {});
 
   try {
     if (route === 'login' && method === 'POST') return handleLogin(req, res);
@@ -91,7 +100,7 @@ function handleRoster(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const id = (req.query && req.query.id) || (req.body && req.body.id);
+    const id = (req.q && req.q.id) || (req.body && req.body.id);
     db.roster = db.roster.filter((p) => p.id !== id);
     saveDB(db);
     res.status(200).json({ ok: true, roster: db.roster });
@@ -235,7 +244,7 @@ function handleToday(req, res) {
 
 // ---------- history ----------
 function handleHistory(req, res) {
-  const pesertaId = req.query && req.query.pesertaId;
+  const pesertaId = req.q && req.q.pesertaId;
   if (!pesertaId) {
     res.status(400).json({ ok: false, message: 'pesertaId wajib diisi.' });
     return;
