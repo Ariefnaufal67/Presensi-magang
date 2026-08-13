@@ -1,7 +1,41 @@
-# Presensi — Absensi Magang Berbasis QR (Prototipe)
+# Presensi — Absensi Peserta Magang Berbasis QR Code
 
-Prototipe siap deploy ke **Vercel**. Frontend statis (`/public`) + backend
-serverless Node.js (`/api`).
+## Tentang Proyek
+
+Presensi adalah prototipe aplikasi web untuk mencatat kehadiran peserta
+magang menggunakan kartu QR code pribadi, menggantikan absensi manual
+(tanda tangan kertas atau grup chat) yang rawan dititip atau tidak
+akurat waktunya.
+
+Setiap peserta magang punya **kartu QR permanen** yang dibuat sekali oleh
+admin. Saat datang atau pulang, peserta cukup menunjukkan kartu QR
+tersebut ke kamera di satu layar **kiosk** yang dioperasikan admin —
+sistem otomatis mendeteksi apakah itu absen masuk atau pulang, tanpa
+perlu peserta memegang perangkat scan sendiri.
+
+Aplikasi ini terdiri dari frontend statis (`/public`) dan backend
+serverless Node.js (`/api`), siap di-deploy ke **Vercel**.
+
+## Fitur Utama
+
+- **Login terpisah untuk admin dan peserta** — admin masuk dengan
+  username & password, peserta masuk dengan NIM/ID, masing-masing
+  hanya melihat halaman sesuai perannya.
+- **Kartu QR pribadi per peserta** — dibuat dan dikelola sepenuhnya
+  oleh admin lewat menu "Kelola Peserta"; peserta hanya bisa melihat
+  dan menunjukkan kartunya, tidak bisa menambah/mengubah data.
+- **Kiosk scan otomatis** — satu layar untuk semua peserta; scan
+  pertama di hari itu tercatat sebagai masuk, scan berikutnya sebagai
+  pulang.
+- **Jam masuk & toleransi keterlambatan yang bisa diatur** — admin
+  menentukan batas jam masuk dan toleransi dalam menit; sistem otomatis
+  menandai status "Tepat waktu" atau "Terlambat" tiap kali ada yang
+  absen masuk.
+- **Tandai pulang manual** — jika peserta lupa scan pulang, admin bisa
+  menandainya secara manual dari daftar peserta.
+- **Riwayat kehadiran peserta** — peserta bisa melihat rekap jam
+  masuk, status keterlambatan, dan jam pulang untuk hari ini maupun
+  hari-hari sebelumnya selama magang.
 
 ## Cara deploy ke Vercel
 
