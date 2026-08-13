@@ -1,0 +1,13 @@
+{
+  "roster": [
+    { "id": "PST-1001", "nama": "Ayu Lestari", "nim": "A11.2022.001" },
+    { "id": "PST-1002", "nama": "Bagas Pratama", "nim": "A11.2022.014" }
+  ],
+  "settings": {
+    "jamMasuk": "08:00",
+    "toleransi": 15,
+    "adminUsername": "admin",
+    "adminPassword": "admin123"
+  },
+  "logs": {}
+}

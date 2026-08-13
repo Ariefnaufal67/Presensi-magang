@@ -1,0 +1,9 @@
+{
+  "name": "presensi-magang",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prototipe absensi peserta magang berbasis QR code — kartu QR permanen per peserta, kiosk scan admin, dan riwayat kehadiran peserta.",
+  "engines": {
+    "node": ">=18"
+  }
+}

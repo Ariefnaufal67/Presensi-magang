@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presensi — Absensi Magang QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#10161D; --surface:#1A222B; --surface-2:#212B35; --line:#2C3742;
+    --ink:#F3F6F5; --ink-soft:#8B96A3;
+    --lime:#C6F135; --lime-dim:#3A4321;
+    --coral:#FF6B4A; --coral-dim:#3D2620;
+    --green:#3FD67F; --green-dim:#173226;
+    --radius:16px; --shadow:0 20px 50px -20px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Outfit',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{min-height:100vh;display:flex;flex-direction:column;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--surface);}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;border-radius:9px;background:var(--lime);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .brand-mark svg{width:18px;height:18px;}
+  .brand-name{font-weight:700;font-size:16px;letter-spacing:-0.01em;font-family:'Outfit';}
+  .brand-sub{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .who-row{display:flex;align-items:center;gap:10px;}
+  .who-row span{font-size:11.5px;color:var(--ink-soft);}
+  .btn-ghost-sm{border:1px solid var(--line);background:transparent;color:var(--ink-soft);padding:8px 14px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:'Inter';}
+  .btn-ghost-sm:hover{border-color:var(--coral);color:var(--coral);}
+
+  .view{flex:1;display:none;padding:24px;}
+  .view.active{display:block;}
+
+  /* ---- Login ---- */
+  .login-wrap{max-width:420px;margin:60px auto 0;}
+  .login-hero{text-align:center;margin-bottom:24px;}
+  .eyebrow{font-family:'JetBrains Mono';font-size:12px;color:var(--lime);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+  .login-hero h1{font-size:24px;margin:0 0 8px;letter-spacing:-0.01em;}
+  .login-hero p{color:var(--ink-soft);font-size:13px;margin:0;line-height:1.5;}
+  .segmented{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:10px;border:1px solid var(--line);margin-bottom:18px;}
+  .segmented button{flex:1;border:none;background:transparent;padding:10px;border-radius:8px;font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;font-family:'Inter';}
+  .segmented button.active{background:var(--lime);color:#10160D;}
+  .picker{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  select,input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:'Inter';font-size:13.5px;}
+  select:focus,input:focus{outline:2px solid var(--lime);outline-offset:1px;}
+  .btn{width:100%;padding:12px;border:none;border-radius:10px;background:var(--lime);color:#10160D;font-weight:700;font-size:13.5px;cursor:pointer;font-family:'Inter';}
+  .btn:hover{filter:brightness(1.08);}
+  .btn:disabled{opacity:.6;cursor:default;}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .login-error{font-size:12px;color:var(--coral);margin-top:10px;}
+  .login-hint{font-size:11px;color:var(--ink-soft);margin-top:14px;text-align:center;line-height:1.5;}
+  .field-pair{display:flex;gap:10px;}
+  .field-pair > div{flex:1;}
+
+  /* ---- Badge (peserta) ---- */
+  .badge-wrap{max-width:460px;margin:0 auto;}
+  .greet-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+  .greet-card h2{font-size:16px;margin:0 0 4px;}
+  .greet-card p{font-size:12.5px;color:var(--ink-soft);margin:0;line-height:1.5;}
+  .idcard{position:relative;background:linear-gradient(155deg,#1E2833,#141C24);border:1px solid var(--line);border-radius:20px;padding:26px 22px 22px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px;}
+  .idcard::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:56px;height:10px;background:var(--bg);border-radius:0 0 8px 8px;}
+  .idcard-top{display:flex;align-items:center;gap:12px;margin:14px 0 18px;}
+  .avatar{width:46px;height:46px;border-radius:50%;background:var(--lime);color:#10160D;display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;flex-shrink:0;}
+  .idcard-name{font-family:'Outfit';font-weight:700;font-size:17px;line-height:1.2;}
+  .idcard-role{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .idcard-qr{background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .idcard-foot{display:flex;justify-content:space-between;align-items:center;}
+  .idcard-id{font-family:'JetBrains Mono';font-size:12px;color:var(--ink-soft);}
+  .idcard-tag{font-family:'JetBrains Mono';font-size:10.5px;background:var(--lime-dim);color:var(--lime);padding:3px 8px;border-radius:20px;}
+
+  .side-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+  .side-card h2{font-size:14px;margin:0 0 4px;}
+  .side-card .desc{font-size:12px;color:var(--ink-soft);margin:0 0 14px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);padding:7px 8px;border-bottom:1px solid var(--line);}
+  tbody td{padding:8px;border-bottom:1px solid var(--line);}
+  tbody tr:last-child td{border-bottom:none;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600;}
+  .pill.masuk{background:var(--green-dim);color:var(--green);}
+  .pill.pulang{background:var(--coral-dim);color:var(--coral);}
+  .pill.tepat{background:var(--green-dim);color:var(--green);}
+  .pill.terlambat{background:var(--coral-dim);color:var(--coral);}
+  .pill.dash{color:var(--ink-soft);}
+  .empty-row td{text-align:center;color:var(--ink-soft);padding:22px;font-size:12.5px;}
+
+  /* ---- Kiosk ---- */
+  .kiosk-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;max-width:1180px;margin:0 auto;align-items:start;}
+  @media (max-width:900px){.kiosk-grid{grid-template-columns:1fr;}}
+  .scan-stage{background:radial-gradient(circle at 50% 30%,#1C2731,#0D1218);border:1px solid var(--line);border-radius:var(--radius);padding:28px;display:flex;flex-direction:column;align-items:center;position:relative;box-shadow:var(--shadow);}
+  .scan-frame{width:100%;max-width:420px;aspect-ratio:1/1;border-radius:20px;overflow:hidden;position:relative;border:2px solid var(--line);}
+  #reader{width:100%;height:100%;}
+  .flash-overlay{position:absolute;inset:0;background:var(--green);opacity:0;pointer-events:none;transition:opacity .12s ease;}
+  .flash-overlay.on{opacity:.35;}
+  .scan-caption{margin-top:16px;text-align:center;}
+  .scan-caption h2{font-size:17px;margin:0 0 4px;}
+  .scan-caption p{font-size:12.5px;color:var(--ink-soft);margin:0;}
+  .manual-row{display:flex;gap:8px;margin-top:18px;width:100%;max-width:420px;}
+  .result-banner{width:100%;max-width:420px;margin-top:16px;padding:16px;border-radius:14px;display:none;align-items:center;gap:14px;}
+  .result-banner.show{display:flex;}
+  .result-banner.masuk{background:var(--green-dim);border:1px solid #1F5C3D;}
+  .result-banner.pulang{background:var(--coral-dim);border:1px solid #5C3226;}
+  .result-banner.error{background:var(--coral-dim);border:1px solid #5C3226;}
+  .result-icon{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .result-name{font-family:'Outfit';font-weight:700;font-size:15px;}
+  .result-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .stat-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;}
+  .stat-num{font-family:'Outfit';font-size:24px;font-weight:700;}
+  .stat-label{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+  .stat-card.green .stat-num{color:var(--green);}
+  .stat-card.coral .stat-num{color:var(--coral);}
+
+  .roster-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px;gap:8px;}
+  .roster-item:last-child{border-bottom:none;}
+  .roster-item .nim{color:var(--ink-soft);font-family:'JetBrains Mono';font-size:11px;}
+  .roster-item .roster-left{display:flex;flex-direction:column;min-width:0;}
+  .roster-item .roster-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .mini-btn{border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:10.5px;font-weight:600;padding:4px 8px;border-radius:20px;white-space:nowrap;}
+  .mini-btn:hover{border-color:var(--coral);color:var(--coral);}
+  .mini-btn:disabled{opacity:.4;cursor:default;}
+  .mini-btn:disabled:hover{border-color:var(--line);color:var(--ink-soft);}
+  .icon-btn{border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;}
+  .icon-btn:hover{background:var(--coral-dim);color:var(--coral);}
+  .msg-ok{font-size:11.5px;color:var(--green);margin-top:8px;}
+  .msg-err{font-size:11.5px;color:var(--coral);margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="3" stroke="#10160D" stroke-width="2"/><circle cx="12" cy="10" r="2.4" stroke="#10160D" stroke-width="2"/><path d="M8 17h8" stroke="#10160D" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Presensi</div>
+        <div class="brand-sub">absensi magang · QR</div>
+      </div>
+    </div>
+    <div class="who-row" id="whoRow" style="display:none;">
+      <span id="whoami" class="mono"></span>
+      <button class="btn-ghost-sm" id="logoutBtn">Keluar</button>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="view active" id="view-login">
+    <div class="login-wrap">
+      <div class="login-hero">
+        <div class="eyebrow">Presensi Magang · QR</div>
+        <h1>Masuk untuk melanjutkan</h1>
+        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM untuk melihat kartu QR & riwayat kehadirannya.</p>
+      </div>
+      <div class="segmented">
+        <button data-mode="peserta" class="active">Peserta Magang</button>
+        <button data-mode="admin">Admin</button>
+      </div>
+
+      <div class="picker" id="formPeserta">
+        <label>NIM / ID</label>
+        <input type="text" id="loginNim" placeholder="mis. A11.2022.001" class="mono" style="margin-bottom:16px;">
+        <button class="btn" id="submitPesertaLogin">Masuk</button>
+        <div id="pesertaLoginError"></div>
+        <p class="login-hint">Belum terdaftar? Minta admin menambahkanmu lewat menu "Kelola Peserta".</p>
+      </div>
+
+      <div class="picker" id="formAdmin" style="display:none;">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="admin" style="margin-bottom:12px;" autocomplete="username">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="••••••••" style="margin-bottom:16px;" autocomplete="current-password">
+        <button class="btn" id="submitAdminLogin">Masuk</button>
+        <div id="adminLoginError"></div>
+        <p class="login-hint">Default awal: <span class="mono">admin</span> / <span class="mono">admin123</span> — segera ganti lewat menu pengaturan.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BADGE (PESERTA) -->
+  <div class="view" id="view-badge">
+    <div class="badge-wrap">
+      <div class="greet-card">
+        <h2 id="badgeGreeting">Halo</h2>
+        <p>Ini kartu QR pribadimu — tunjukkan ke kamera di layar Kiosk Admin saat absen masuk / pulang.</p>
+      </div>
+
+      <div class="idcard" id="idcard">
+        <div class="idcard-top">
+          <div class="avatar" id="avatarInit">–</div>
+          <div>
+            <div class="idcard-name" id="idcardName">—</div>
+            <div class="idcard-role">Peserta Magang</div>
+          </div>
+        </div>
+        <div class="idcard-qr" id="idcardQr"></div>
+        <div class="idcard-foot">
+          <div class="idcard-id mono" id="idcardId">—</div>
+          <div class="idcard-tag">AKTIF</div>
+        </div>
+      </div>
+
+      <div class="side-card">
+        <h2>Riwayat Kehadiran</h2>
+        <p class="desc">Rekap jam masuk & pulangmu, biar tahu hari ini atau hari-hari sebelumnya kamu tepat waktu atau terlambat.</p>
+        <table>
+          <thead><tr><th>Tanggal</th><th>Masuk</th><th>Status</th><th>Pulang</th></tr></thead>
+          <tbody id="historyBody"><tr class="empty-row"><td colspan="4">Memuat riwayat…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- KIOSK (ADMIN) -->
+  <div class="view" id="view-kiosk">
+    <div class="kiosk-grid">
+      <div class="scan-stage">
+        <div class="scan-frame">
+          <div id="reader"></div>
+          <div class="flash-overlay" id="flashOverlay"></div>
+        </div>
+        <div class="scan-caption">
+          <h2 id="scanCaption">Arahkan kartu QR ke kamera</h2>
+          <p id="scanSub">Mode otomatis: masuk pertama kali, pulang di scan berikutnya.</p>
+        </div>
+        <div class="manual-row">
+          <input type="text" id="manualId" placeholder="atau ketik ID kartu, mis. PST-2931" class="mono">
+          <button class="btn" style="width:auto;padding:10px 16px;" id="submitManual">Kirim</button>
+        </div>
+        <div class="result-banner" id="resultBanner">
+          <div class="result-icon" id="resultIcon"></div>
+          <div>
+            <div class="result-name" id="resultName">—</div>
+            <div class="result-sub" id="resultSub">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="stats-row">
+          <div class="stat-card green"><div class="stat-num" id="statMasuk">0</div><div class="stat-label">Sudah masuk</div></div>
+          <div class="stat-card coral"><div class="stat-num" id="statPulang">0</div><div class="stat-label">Sudah pulang</div></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Jam Masuk & Toleransi</h2>
+          <p class="desc">Menentukan status "Tepat waktu" vs "Terlambat" saat scan masuk.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <div><label>Batas jam masuk</label><input type="time" id="jamMasuk" value="08:00"></div>
+            <div><label>Toleransi (menit)</label><input type="number" id="toleransi" value="15" min="0"></div>
+          </div>
+          <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
+        </div>
+
+        <div class="side-card">
+          <h2>Akun Admin</h2>
+          <p class="desc">Ganti username / password login admin.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <div><label>Username baru</label><input type="text" id="newAdminUser" placeholder="admin"></div>
+            <div><label>Password baru</label><input type="password" id="newAdminPass" placeholder="min. 4 karakter"></div>
+          </div>
+          <button class="btn ghost" id="saveCredentials">Ganti Kredensial</button>
+          <div id="credentialMsg"></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
+          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <table>
+            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th></tr></thead>
+            <tbody id="logBody"><tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="side-card">
+          <h2>Kelola Peserta</h2>
+          <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka. Admin juga bisa menandai pulang manual kalau peserta lupa scan.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <input type="text" id="newNama" placeholder="Nama">
+            <input type="text" id="newNim" placeholder="NIM / ID">
+          </div>
+          <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
+          <div id="rosterList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function initials(name){ return name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+  function formatTanggal(tk){
+    const d = new Date(tk + 'T00:00:00');
+    return d.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  }
+  async function api(path, options){
+    const res = await fetch(path, options);
+    let data = {};
+    try{ data = await res.json(); }catch(e){}
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  let currentPeserta = null;
+  let currentAdmin = null;
+  let scanner = null;
+
+  // ---------- nav ----------
+  const viewLogin = document.getElementById('view-login');
+  const viewBadge = document.getElementById('view-badge');
+  const viewKiosk = document.getElementById('view-kiosk');
+  const whoRow = document.getElementById('whoRow');
+
+  function hideAll(){
+    [viewLogin, viewBadge, viewKiosk].forEach(v=>v.classList.remove('active'));
+    stopScanner();
+  }
+  function goLogin(){
+    hideAll();
+    currentPeserta = null; currentAdmin = null;
+    whoRow.style.display = 'none';
+    document.getElementById('loginNim').value='';
+    document.getElementById('loginUser').value='';
+    document.getElementById('loginPass').value='';
+    document.getElementById('pesertaLoginError').innerHTML='';
+    document.getElementById('adminLoginError').innerHTML='';
+    viewLogin.classList.add('active');
+  }
+  document.getElementById('logoutBtn').addEventListener('click', goLogin);
+
+  // ---------- login mode toggle ----------
+  document.querySelectorAll('.segmented button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.segmented button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('formPeserta').style.display = btn.dataset.mode==='peserta' ? 'block':'none';
+      document.getElementById('formAdmin').style.display = btn.dataset.mode==='admin' ? 'block':'none';
+    });
+  });
+
+  // ---------- admin login ----------
+  document.getElementById('submitAdminLogin').addEventListener('click', async ()=>{
+    const username = document.getElementById('loginUser').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const err = document.getElementById('adminLoginError');
+    err.innerHTML = '';
+    const { ok, data } = await api('/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ role:'admin', username, password })
+    });
+    if(ok && data.ok){
+      currentAdmin = data.admin;
+      hideAll();
+      whoRow.style.display='flex';
+      document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
+      viewKiosk.classList.add('active');
+      await renderKiosk();
+      startScanner();
+    } else {
+      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
+    }
+  });
+
+  // ---------- peserta login ----------
+  document.getElementById('submitPesertaLogin').addEventListener('click', async ()=>{
+    const nim = document.getElementById('loginNim').value.trim();
+    const err = document.getElementById('pesertaLoginError');
+    err.innerHTML = '';
+    const { ok, data } = await api('/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ role:'peserta', nim })
+    });
+    if(ok && data.ok){
+      currentPeserta = data.peserta;
+      hideAll();
+      whoRow.style.display='flex';
+      document.getElementById('whoami').textContent = currentPeserta.nama;
+      document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
+      renderCard(currentPeserta);
+      viewBadge.classList.add('active');
+      loadHistory(currentPeserta.id);
+    } else {
+      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
+    }
+  });
+
+  // ---------- badge (peserta) ----------
+  function renderCard(p){
+    document.getElementById('avatarInit').textContent = initials(p.nama);
+    document.getElementById('idcardName').textContent = p.nama;
+    document.getElementById('idcardId').textContent = p.id + ' · ' + p.nim;
+    const qrBox = document.getElementById('idcardQr');
+    qrBox.innerHTML = '';
+    new QRCode(qrBox, { text: 'KARTU|'+p.id, width:150, height:150, colorDark:'#10160D', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  async function loadHistory(pesertaId){
+    const body = document.getElementById('historyBody');
+    body.innerHTML = '<tr class="empty-row"><td colspan="4">Memuat riwayat…</td></tr>';
+    const { ok, data } = await api('/api/history?pesertaId=' + encodeURIComponent(pesertaId));
+    if(!ok || !data.history || data.history.length===0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada riwayat kehadiran.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.history.map(r=>{
+      const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
+      const pulangCell = r.jamPulang
+        ? `${r.jamPulang}${r.pulangManual ? ' <span class="pill dash">manual</span>' : ''}`
+        : '<span class="pill dash">belum pulang</span>';
+      return `<tr><td>${formatTanggalSingkat(r.tanggal)}</td><td class="mono">${r.jamMasuk}</td><td>${statusPill}</td><td class="mono">${pulangCell}</td></tr>`;
+    }).join('');
+  }
+  function formatTanggalSingkat(tk){
+    const d = new Date(tk + 'T00:00:00');
+    return d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+  }
+
+  // ---------- kiosk (admin) ----------
+  async function renderKiosk(){
+    const s = await api('/api/settings');
+    if(s.ok){
+      document.getElementById('jamMasuk').value = s.data.jamMasuk;
+      document.getElementById('toleransi').value = s.data.toleransi;
+    }
+    await refreshToday();
+    await refreshRoster();
+  }
+
+  async function refreshToday(){
+    const { ok, data } = await api('/api/today');
+    if(!ok) return;
+    document.getElementById('tanggalHariIni').textContent = formatTanggal(data.tanggal);
+    renderLog(data.log || []);
+  }
+  function renderLog(log){
+    const body = document.getElementById('logBody');
+    if(log.length===0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr>';
+    } else {
+      body.innerHTML = log.slice().reverse().map(r=>{
+        const rows = [];
+        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td></tr>`);
+        if(r.jamPulang){
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td></tr>`);
+        }
+        return rows.join('');
+      }).join('');
+    }
+    const masuk = log.length;
+    const pulang = log.filter(r=>r.jamPulang).length;
+    document.getElementById('statMasuk').textContent = masuk;
+    document.getElementById('statPulang').textContent = pulang;
+  }
+
+  async function refreshRoster(){
+    const { ok, data } = await api('/api/roster');
+    if(!ok) return;
+    renderRoster(data.roster || []);
+  }
+  function renderRoster(roster){
+    const el = document.getElementById('rosterList');
+    if(roster.length===0){
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada peserta terdaftar.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    roster.forEach(p=>{
+      const row = document.createElement('div');
+      row.className = 'roster-item';
+
+      const left = document.createElement('div');
+      left.className = 'roster-left';
+      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id} · ${escapeHtml(p.nim)}</span>`;
+      row.appendChild(left);
+
+      const actions = document.createElement('div');
+      actions.className = 'roster-actions';
+
+      const markBtn = document.createElement('button');
+      markBtn.className = 'mini-btn';
+      markBtn.textContent = 'Tandai Pulang';
+      markBtn.title = 'Tandai pulang manual (tanpa scan)';
+      markBtn.addEventListener('click', async ()=>{
+        const { ok, data } = await api('/api/mark-pulang', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ pesertaId: p.id })
+        });
+        if(ok && data.ok){
+          await refreshToday();
+        } else {
+          alert((data && data.message) || 'Gagal menandai pulang.');
+        }
+      });
+      actions.appendChild(markBtn);
+
+      const del = document.createElement('button');
+      del.className='icon-btn'; del.textContent='✕'; del.title='Hapus peserta';
+      del.addEventListener('click', async ()=>{
+        await api('/api/roster?id=' + encodeURIComponent(p.id), { method:'DELETE' });
+        await refreshRoster();
+      });
+      actions.appendChild(del);
+
+      row.appendChild(actions);
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('addPeserta').addEventListener('click', async ()=>{
+    const nama = document.getElementById('newNama').value.trim();
+    const nim = document.getElementById('newNim').value.trim();
+    if(!nama) return;
+    const { ok, data } = await api('/api/roster', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ nama, nim })
+    });
+    if(ok && data.ok){
+      document.getElementById('newNama').value=''; document.getElementById('newNim').value='';
+      renderRoster(data.roster);
+    }
+  });
+
+  document.getElementById('saveSettings').addEventListener('click', async ()=>{
+    const jamMasuk = document.getElementById('jamMasuk').value || '08:00';
+    const toleransi = parseInt(document.getElementById('toleransi').value) || 0;
+    await api('/api/settings', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ jamMasuk, toleransi })
+    });
+    const btn = document.getElementById('saveSettings');
+    const orig = btn.textContent; btn.textContent = 'Tersimpan ✓';
+    setTimeout(()=> btn.textContent = orig, 1200);
+  });
+
+  document.getElementById('saveCredentials').addEventListener('click', async ()=>{
+    const username = document.getElementById('newAdminUser').value.trim();
+    const password = document.getElementById('newAdminPass').value;
+    const msg = document.getElementById('credentialMsg');
+    const { ok, data } = await api('/api/credentials', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    if(ok && data.ok){
+      document.getElementById('newAdminUser').value='';
+      document.getElementById('newAdminPass').value='';
+      msg.innerHTML = '<div class="msg-ok">Kredensial berhasil diganti. Gunakan yang baru saat login berikutnya.</div>';
+    } else {
+      msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal mengganti kredensial.')}</div>`;
+    }
+  });
+
+  // ---------- scanning ----------
+  async function startScanner(){
+    const cap = document.getElementById('scanCaption');
+    try{
+      scanner = new Html5Qrcode("reader");
+      const cams = await Html5Qrcode.getCameras();
+      if(!cams || cams.length===0){ cap.textContent = 'Kamera tidak tersedia — pakai input ID manual'; return; }
+      await scanner.start({facingMode:"environment"}, {fps:10, qrbox:230}, (text)=>handleScan(text), ()=>{});
+    }catch(e){
+      cap.textContent = 'Akses kamera ditolak — pakai input ID manual';
+    }
+  }
+  function stopScanner(){
+    if(scanner){ scanner.stop().then(()=>scanner.clear()).catch(()=>{}); scanner=null; }
+  }
+  function handleScan(text){
+    const parts = text.split('|');
+    if(parts[0] !== 'KARTU' || !parts[1]){ processResult(null, 'Kartu tidak dikenali', null); return; }
+    processId(parts[1]);
+  }
+  document.getElementById('submitManual').addEventListener('click', ()=>{
+    const val = document.getElementById('manualId').value.trim().toUpperCase();
+    if(!val) return;
+    processId(val);
+    document.getElementById('manualId').value='';
+  });
+
+  async function processId(id){
+    const { ok, data } = await api('/api/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id })
+    });
+    if(!ok){
+      processResult(null, (data && data.message) || 'Terjadi kesalahan.', null);
+      return;
+    }
+    if(data.ok){
+      await refreshToday();
+      processResult(data.peserta, data.message, data.jenis);
+    } else {
+      processResult(data.peserta || null, data.message, null);
+    }
+  }
+
+  function processResult(p, msg, jenis){
+    const banner = document.getElementById('resultBanner');
+    const flash = document.getElementById('flashOverlay');
+    banner.classList.remove('masuk','pulang','error');
+    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : jenis==='Pulang' ? 'pulang' : 'error');
+    document.getElementById('resultName').textContent = p ? p.nama : 'Tidak dikenali';
+    document.getElementById('resultSub').textContent = msg;
+    document.getElementById('resultIcon').innerHTML = jenis
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+    flash.classList.add('on');
+    setTimeout(()=>flash.classList.remove('on'), 200);
+    setTimeout(()=>banner.classList.remove('show'), 4000);
+  }
+
+  goLogin();
+})();
+</script>
+</body>
+</html>
