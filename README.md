@@ -59,18 +59,28 @@ Tidak perlu build step — tidak ada framework, semua vanilla Node.js + HTML.
 ## Struktur proyek
 
 ```
-public/index.html     halaman aplikasi (login, kartu peserta, kiosk admin)
-api/login.js           login admin (username/password) & peserta (NIM)
-api/roster.js          GET/POST/DELETE data peserta magang
-api/settings.js        GET/POST jam masuk & toleransi keterlambatan
-api/credentials.js     POST ganti username/password admin
-api/scan.js            proses hasil scan QR -> catat masuk/pulang + status
-api/mark-pulang.js     admin menandai pulang manual (tanpa scan)
-api/today.js           log kehadiran hari ini (untuk dashboard kiosk)
-api/history.js         riwayat kehadiran per peserta (untuk halaman peserta)
-lib/store.js           helper baca/tulis data (lihat catatan di bawah)
-data/seed.json         data awal: roster contoh, pengaturan default
+public/index.html       halaman aplikasi (login, kartu peserta, kiosk admin)
+api/[...route].js        SATU serverless function untuk semua endpoint API
+                          (login, roster, settings, credentials, scan,
+                          mark-pulang, today, history) — lihat catatan
+                          "Kenapa satu function" di bawah.
+lib/store.js              helper baca/tulis data (lihat catatan di bawah)
+data/seed.json             data awal: roster contoh, pengaturan default
 ```
+
+### Kenapa semua endpoint digabung jadi satu function?
+
+Di Vercel, tiap file terpisah di dalam `/api/` otomatis jadi **serverless
+function yang benar-benar terpisah** — masing-masing punya folder `/tmp`
+sendiri untuk penyimpanan sementara. Kalau `scan.js` dan `today.js` dibuat
+sebagai file terpisah, data yang ditulis `scan.js` ke `/tmp` miliknya
+**tidak akan terbaca** oleh `today.js` karena `/tmp` keduanya berbeda —
+akibatnya scan kelihatan berhasil tapi log & riwayat kehadiran tetap kosong.
+
+Solusinya: semua logic digabung ke satu file `api/[...route].js` yang
+menangani semua path di bawah `/api/*` (login, roster, scan, dst).
+Karena hanya ada satu function, semua operasi baca/tulis memakai `/tmp`
+yang sama sehingga datanya konsisten.
 
 ## Login default
 
@@ -82,14 +92,17 @@ data/seed.json         data awal: roster contoh, pengaturan default
 ## ⚠️ Catatan penting soal penyimpanan data
 
 `lib/store.js` menyimpan data di **file JSON di folder `/tmp`**, satu-satunya
-lokasi yang bisa ditulis di lingkungan serverless Vercel. Ini cukup untuk
-demo/prototipe, tapi:
+lokasi yang bisa ditulis di lingkungan serverless Vercel. Karena semua
+endpoint sekarang berjalan di satu function yang sama (`api/[...route].js`),
+data antar-endpoint (scan, log, riwayat, dst) akan **konsisten selama
+function tetap "warm"**. Tapi ini masih cukup untuk demo/prototipe, bukan
+produksi, karena:
 
 - Data **bisa hilang atau ter-reset** saat terjadi cold start baru atau
   deploy ulang, karena `/tmp` tidak permanen antar-eksekusi function.
-- Untuk beberapa pengguna yang mengakses bersamaan dalam waktu berdekatan,
-  datanya kemungkinan tetap konsisten (satu instance function tetap "warm"),
-  tapi ini **tidak dijamin** di skala produksi.
+- Di skala trafik lebih tinggi, Vercel bisa menjalankan beberapa instance
+  function sekaligus (masing-masing `/tmp` sendiri) — jadi konsistensi
+  data tetap **tidak dijamin 100%** untuk penggunaan produksi.
 
 **Untuk versi produksi sungguhan**, ganti `lib/store.js` agar membaca/menulis
 ke database asli, misalnya:
