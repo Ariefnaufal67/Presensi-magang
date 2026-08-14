@@ -2,40 +2,69 @@
 
 ## Tentang Proyek
 
-Presensi adalah prototipe aplikasi web untuk mencatat kehadiran peserta
-magang menggunakan kartu QR code pribadi, menggantikan absensi manual
-(tanda tangan kertas atau grup chat) yang rawan dititip atau tidak
-akurat waktunya.
+Presensi adalah aplikasi web untuk mencatat kehadiran peserta magang
+menggunakan kartu QR code pribadi, menggantikan absensi manual (tanda
+tangan kertas atau grup chat) yang rawan dititip atau tidak akurat
+waktunya.
 
 Setiap peserta magang punya **kartu QR permanen** yang dibuat sekali oleh
 admin. Saat datang atau pulang, peserta cukup menunjukkan kartu QR
 tersebut ke kamera di satu layar **kiosk** yang dioperasikan admin —
-sistem otomatis mendeteksi apakah itu absen masuk atau pulang, tanpa
-perlu peserta memegang perangkat scan sendiri.
+sistem otomatis mendeteksi apakah itu absen masuk atau pulang.
 
-Aplikasi ini terdiri dari frontend statis (`/public`) dan backend
-serverless Node.js (`/api`), siap di-deploy ke **Vercel**.
+Versi ini memakai **database asli (MongoDB Atlas)**, bukan lagi file
+sementara — data tidak akan hilang saat cold start atau redeploy seperti
+versi prototipe sebelumnya.
 
 ## Fitur Utama
 
-- **Login terpisah untuk admin dan peserta** — admin masuk dengan
-  username & password, peserta masuk dengan NIM/ID, masing-masing
-  hanya melihat halaman sesuai perannya.
-- **Kartu QR pribadi per peserta** — dibuat dan dikelola sepenuhnya
-  oleh admin lewat menu "Kelola Peserta"; peserta hanya bisa melihat
-  dan menunjukkan kartunya, tidak bisa menambah/mengubah data.
-- **Kiosk scan otomatis** — satu layar untuk semua peserta; scan
-  pertama di hari itu tercatat sebagai masuk, scan berikutnya sebagai
-  pulang.
-- **Jam masuk & toleransi keterlambatan yang bisa diatur** — admin
-  menentukan batas jam masuk dan toleransi dalam menit; sistem otomatis
-  menandai status "Tepat waktu" atau "Terlambat" tiap kali ada yang
-  absen masuk.
-- **Tandai pulang manual** — jika peserta lupa scan pulang, admin bisa
-  menandainya secara manual dari daftar peserta.
-- **Riwayat kehadiran peserta** — peserta bisa melihat rekap jam
-  masuk, status keterlambatan, dan jam pulang untuk hari ini maupun
-  hari-hari sebelumnya selama magang.
+- Login terpisah untuk admin (username & password) dan peserta (NIM/ID).
+- Kartu QR pribadi per peserta, dikelola sepenuhnya oleh admin.
+- Kiosk scan otomatis — scan pertama di hari itu = masuk, scan berikutnya = pulang.
+- Jam masuk & toleransi keterlambatan yang bisa diatur admin, dipakai
+  untuk menandai status "Tepat waktu" / "Terlambat" secara otomatis.
+- Tandai pulang manual oleh admin (kalau peserta lupa scan).
+- Riwayat kehadiran per peserta (jam masuk, status, jam pulang, per hari).
+- **Password admin disimpan ter-hash (bcrypt)**, tidak dalam bentuk teks biasa.
+
+## Struktur proyek
+
+```
+public/index.html       halaman aplikasi (login, kartu peserta, kiosk admin)
+api/[...route].js        satu serverless function untuk semua endpoint API
+lib/db.js                 koneksi MongoDB (dengan connection caching)
+lib/store.js              semua query database (roster, settings, absensi)
+data/seed.json             data awal — dipakai SEKALI saat database masih kosong
+.env.example               contoh environment variable untuk lokal
+```
+
+## Setup database (MongoDB Atlas — gratis)
+
+1. Buat akun di [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas/register) (gratis, tidak perlu kartu kredit).
+2. Buat cluster baru, pilih tier **M0 Free**.
+3. Di menu **Database Access**, buat database user (username & password) —
+   catat kredensialnya.
+4. Di menu **Network Access**, klik **Add IP Address** → pilih
+   **Allow Access from Anywhere** (`0.0.0.0/0`). Ini perlu karena Vercel
+   memakai IP dinamis untuk serverless function.
+5. Di halaman cluster, klik **Connect** → **Drivers** → salin
+   *connection string*-nya, bentuknya seperti:
+   ```
+   mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority
+   ```
+6. Ganti `USERNAME` dan `PASSWORD` dengan kredensial dari langkah 3.
+
+## Setup environment variable di Vercel
+
+1. Buka project di dashboard Vercel → **Settings** → **Environment Variables**.
+2. Tambahkan:
+   - `MONGODB_URI` = connection string dari langkah di atas
+   - `MONGODB_DB` = `presensi_magang` (opsional, ini juga defaultnya)
+3. Redeploy project (Vercel akan otomatis redeploy kalau kamu push commit
+   baru, atau klik **Redeploy** manual di dashboard).
+
+Database & koleksinya akan **terisi otomatis** dari `data/seed.json` saat
+pertama kali ada request masuk ke aplikasi (tidak perlu import manual).
 
 ## Cara deploy ke Vercel
 
@@ -45,81 +74,44 @@ npm i -g vercel
 cd presensi-magang
 vercel
 ```
-Ikuti prompt-nya (login Vercel, pilih scope, project baru). Setelah selesai,
-`vercel --prod` untuk deploy ke production URL.
 
 **Opsi 2 — lewat dashboard Vercel**
 1. Push folder ini ke repo GitHub/GitLab/Bitbucket.
 2. Di [vercel.com](https://vercel.com) → **Add New Project** → import repo tersebut.
-3. Biarkan pengaturan default (Vercel otomatis mendeteksi `/api` sebagai
-   Serverless Functions dan `/public` sebagai static hosting). Klik **Deploy**.
+3. Isi environment variable `MONGODB_URI` (lihat bagian di atas) sebelum
+   klik **Deploy**, atau tambahkan sesudahnya lalu redeploy.
 
-Tidak perlu build step — tidak ada framework, semua vanilla Node.js + HTML.
-
-## Struktur proyek
-
-```
-public/index.html       halaman aplikasi (login, kartu peserta, kiosk admin)
-api/[...route].js        SATU serverless function untuk semua endpoint API
-                          (login, roster, settings, credentials, scan,
-                          mark-pulang, today, history) — lihat catatan
-                          "Kenapa satu function" di bawah.
-lib/store.js              helper baca/tulis data (lihat catatan di bawah)
-data/seed.json             data awal: roster contoh, pengaturan default
-```
-
-### Kenapa semua endpoint digabung jadi satu function?
-
-Di Vercel, tiap file terpisah di dalam `/api/` otomatis jadi **serverless
-function yang benar-benar terpisah** — masing-masing punya folder `/tmp`
-sendiri untuk penyimpanan sementara. Kalau `scan.js` dan `today.js` dibuat
-sebagai file terpisah, data yang ditulis `scan.js` ke `/tmp` miliknya
-**tidak akan terbaca** oleh `today.js` karena `/tmp` keduanya berbeda —
-akibatnya scan kelihatan berhasil tapi log & riwayat kehadiran tetap kosong.
-
-Solusinya: semua logic digabung ke satu file `api/[...route].js` yang
-menangani semua path di bawah `/api/*` (login, roster, scan, dst).
-Karena hanya ada satu function, semua operasi baca/tulis memakai `/tmp`
-yang sama sehingga datanya konsisten.
+Vercel otomatis menjalankan `npm install` untuk memasang dependency
+(`mongodb`, `bcryptjs`) — tidak perlu langkah build tambahan.
 
 ## Login default
 
-- **Admin**: `admin` / `admin123` — ganti lewat menu "Akun Admin" di kiosk
-  setelah login pertama.
+- **Admin**: `admin` / `admin123` — **segera ganti** lewat menu "Akun Admin"
+  di kiosk setelah login pertama (password akan otomatis di-hash ulang).
 - **Peserta**: login pakai NIM (atau ID kartu, mis. `PST-1001`) sesuai data
   di `data/seed.json`, atau yang ditambahkan admin lewat menu "Kelola Peserta".
-
-## ⚠️ Catatan penting soal penyimpanan data
-
-`lib/store.js` menyimpan data di **file JSON di folder `/tmp`**, satu-satunya
-lokasi yang bisa ditulis di lingkungan serverless Vercel. Karena semua
-endpoint sekarang berjalan di satu function yang sama (`api/[...route].js`),
-data antar-endpoint (scan, log, riwayat, dst) akan **konsisten selama
-function tetap "warm"**. Tapi ini masih cukup untuk demo/prototipe, bukan
-produksi, karena:
-
-- Data **bisa hilang atau ter-reset** saat terjadi cold start baru atau
-  deploy ulang, karena `/tmp` tidak permanen antar-eksekusi function.
-- Di skala trafik lebih tinggi, Vercel bisa menjalankan beberapa instance
-  function sekaligus (masing-masing `/tmp` sendiri) — jadi konsistensi
-  data tetap **tidak dijamin 100%** untuk penggunaan produksi.
-
-**Untuk versi produksi sungguhan**, ganti `lib/store.js` agar membaca/menulis
-ke database asli, misalnya:
-- [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres)
-- [Vercel KV](https://vercel.com/docs/storage/vercel-kv) (Redis)
-- Supabase / PlanetScale / MongoDB Atlas, dll.
-
-Struktur data (`roster`, `settings`, `logs`) sudah dipisah rapi per fungsi,
-jadi migrasi ke database nantinya cukup mengganti isi `getDB()`/`saveDB()`
-tanpa mengubah kode di `/api/*.js`.
 
 ## Menjalankan secara lokal (opsional)
 
 ```bash
+cp .env.example .env
+# isi MONGODB_URI di .env dengan connection string kamu
+
 npm i -g vercel
-cd presensi-magang
+npm install
 vercel dev
 ```
-Ini menjalankan frontend + serverless functions sekaligus di `localhost`,
-sama seperti lingkungan Vercel yang sebenarnya.
+
+## Catatan keamanan & pengembangan lanjutan
+
+- Password admin sudah di-hash pakai `bcryptjs` — bukan disimpan sebagai
+  teks biasa di database.
+- Belum ada rate-limiting di endpoint login — untuk produksi dengan
+  trafik publik, pertimbangkan menambah pembatasan percobaan login.
+- Login belum memakai sesi/token (JWT) — status login hanya disimpan di
+  memori browser (JS), jadi refresh halaman = perlu login ulang. Kalau
+  perlu sesi yang bertahan setelah refresh, bisa ditambahkan
+  `httpOnly` cookie + token nanti.
+- Index unik `{pesertaId, tanggal}` di koleksi `attendance` mencegah satu
+  peserta punya lebih dari satu entri absen di hari yang sama, meski ada
+  banyak scan bersamaan.

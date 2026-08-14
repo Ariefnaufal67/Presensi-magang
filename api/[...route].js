@@ -1,63 +1,45 @@
-// Semua endpoint /api/* digabung jadi SATU serverless function.
-//
-// KENAPA DIGABUNG:
-// Di Vercel, tiap file terpisah di /api/ (mis. scan.js, today.js, history.js)
-// jadi function yang benar-benar terpisah, masing-masing dengan folder /tmp
-// sendiri. Akibatnya data yang ditulis oleh satu function (mis. scan.js)
-// tidak terbaca oleh function lain (mis. today.js) -> log/riwayat kelihatan
-// kosong padahal scan sukses. Dengan digabung jadi satu function di sini,
-// semua operasi baca/tulis memakai /tmp yang sama sehingga konsisten.
-//
-// Route ditentukan dari path setelah /api/, contoh:
-//   POST /api/login        -> handleLogin
-//   GET  /api/roster        -> handleRoster (list)
-//   POST /api/scan          -> handleScan
-//   GET  /api/history?pesertaId=... -> handleHistory
-
 const { parse: parseUrl } = require('url');
-const { getDB, saveDB, todayKey, formatJam } = require('../lib/store');
+const store = require('../lib/store');
 
-module.exports = (req, res) => {
-  // Route ditentukan langsung dari req.url, bukan dari req.query.route.
-  // (req.query.route dari fitur dynamic-route Vercel ternyata tidak selalu
-  // terisi dengan konsisten untuk Serverless Functions tanpa framework,
-  // jadi kita parse manual di sini supaya pasti jalan.)
+module.exports = async (req, res) => {
+  // Route ditentukan langsung dari req.url (bukan req.query.route bawaan
+  // Vercel), karena fitur dynamic-route-nya terbukti tidak konsisten untuk
+  // Serverless Functions tanpa framework.
   const { pathname, query } = parseUrl(req.url, true);
   const route = pathname.replace(/^\/api\/?/, '').replace(/\/$/, '');
   const method = req.method;
-
-  // Gabungkan query string dari URL dengan req.query bawaan (kalau ada),
-  // dipakai oleh handler yang butuh parameter seperti ?pesertaId= atau ?id=
   req.q = Object.assign({}, query, req.query || {});
 
   try {
-    if (route === 'login' && method === 'POST') return handleLogin(req, res);
-    if (route === 'roster') return handleRoster(req, res);
-    if (route === 'settings') return handleSettings(req, res);
-    if (route === 'credentials' && method === 'POST') return handleCredentials(req, res);
-    if (route === 'scan' && method === 'POST') return handleScan(req, res);
-    if (route === 'mark-pulang' && method === 'POST') return handleMarkPulang(req, res);
-    if (route === 'today' && method === 'GET') return handleToday(req, res);
-    if (route === 'history' && method === 'GET') return handleHistory(req, res);
-    if (route === 'izin' && method === 'GET') return handleIzinList(req, res);
-    if (route === 'izin' && method === 'POST') return handleIzinAjukan(req, res);
-    if (route === 'izin-approve' && method === 'POST') return handleIzinApprove(req, res);
-    if (route === 'izin-reject' && method === 'POST') return handleIzinReject(req, res);
-    if (route === 'stats' && method === 'GET') return handleStats(req, res);
+    if (route === 'login' && method === 'POST') return await handleLogin(req, res);
+    if (route === 'roster') return await handleRoster(req, res);
+    if (route === 'settings') return await handleSettings(req, res);
+    if (route === 'credentials' && method === 'POST') return await handleCredentials(req, res);
+    if (route === 'scan' && method === 'POST') return await handleScan(req, res);
+    if (route === 'mark-pulang' && method === 'POST') return await handleMarkPulang(req, res);
+    if (route === 'today' && method === 'GET') return await handleToday(req, res);
+    if (route === 'history' && method === 'GET') return await handleHistory(req, res);
 
     res.status(404).json({ ok: false, message: 'Endpoint tidak ditemukan: ' + route });
   } catch (e) {
-    res.status(500).json({ ok: false, message: 'Terjadi kesalahan server: ' + e.message });
+    console.error('[presensi] API error:', e);
+    res.status(500).json({
+      ok: false,
+      message:
+        e && e.message && e.message.includes('MONGODB_URI')
+          ? e.message
+          : 'Terjadi kesalahan server. Cek koneksi database (MONGODB_URI) dan log deployment di Vercel.'
+    });
   }
 };
 
 // ---------- login ----------
-function handleLogin(req, res) {
+async function handleLogin(req, res) {
   const { role, username, password, nim } = req.body || {};
-  const db = getDB();
 
   if (role === 'admin') {
-    if (username === db.settings.adminUsername && password === db.settings.adminPassword) {
+    const valid = await store.verifyAdmin(username, password);
+    if (valid) {
       res.status(200).json({ ok: true, admin: { username } });
     } else {
       res.status(401).json({ ok: false, message: 'Username atau password salah.' });
@@ -66,10 +48,7 @@ function handleLogin(req, res) {
   }
 
   if (role === 'peserta') {
-    const needle = String(nim || '').trim().toLowerCase();
-    const p = db.roster.find(
-      (x) => x.nim.toLowerCase() === needle || x.id.toLowerCase() === needle
-    );
+    const p = await store.findPeserta(nim);
     if (p) {
       res.status(200).json({ ok: true, peserta: p });
     } else {
@@ -82,11 +61,10 @@ function handleLogin(req, res) {
 }
 
 // ---------- roster ----------
-function handleRoster(req, res) {
-  const db = getDB();
-
+async function handleRoster(req, res) {
   if (req.method === 'GET') {
-    res.status(200).json({ roster: db.roster });
+    const roster = await store.getRoster();
+    res.status(200).json({ roster });
     return;
   }
 
@@ -96,19 +74,17 @@ function handleRoster(req, res) {
       res.status(400).json({ ok: false, message: 'Nama wajib diisi.' });
       return;
     }
-    const id = 'PST-' + Math.floor(1000 + Math.random() * 8999);
-    const item = { id, nama: String(nama).trim(), nim: nim ? String(nim).trim() : '-' };
-    db.roster.push(item);
-    saveDB(db);
-    res.status(200).json({ ok: true, peserta: item, roster: db.roster });
+    const item = await store.addPeserta(nama, nim);
+    const roster = await store.getRoster();
+    res.status(200).json({ ok: true, peserta: item, roster });
     return;
   }
 
   if (req.method === 'DELETE') {
     const id = (req.q && req.q.id) || (req.body && req.body.id);
-    db.roster = db.roster.filter((p) => p.id !== id);
-    saveDB(db);
-    res.status(200).json({ ok: true, roster: db.roster });
+    await store.deletePeserta(id);
+    const roster = await store.getRoster();
+    res.status(200).json({ ok: true, roster });
     return;
   }
 
@@ -116,25 +92,17 @@ function handleRoster(req, res) {
 }
 
 // ---------- settings ----------
-function handleSettings(req, res) {
-  const db = getDB();
-
+async function handleSettings(req, res) {
   if (req.method === 'GET') {
-    res.status(200).json({ jamMasuk: db.settings.jamMasuk, toleransi: db.settings.toleransi });
+    const settings = await store.getSettings();
+    res.status(200).json(settings);
     return;
   }
 
   if (req.method === 'POST') {
     const { jamMasuk, toleransi } = req.body || {};
-    if (jamMasuk) db.settings.jamMasuk = jamMasuk;
-    if (toleransi !== undefined && toleransi !== null && toleransi !== '') {
-      db.settings.toleransi = parseInt(toleransi, 10) || 0;
-    }
-    saveDB(db);
-    res.status(200).json({
-      ok: true,
-      settings: { jamMasuk: db.settings.jamMasuk, toleransi: db.settings.toleransi }
-    });
+    const settings = await store.updateSettings({ jamMasuk, toleransi });
+    res.status(200).json({ ok: true, settings });
     return;
   }
 
@@ -142,7 +110,7 @@ function handleSettings(req, res) {
 }
 
 // ---------- credentials ----------
-function handleCredentials(req, res) {
+async function handleCredentials(req, res) {
   const { username, password } = req.body || {};
   if (!username || !String(username).trim() || !password || String(password).length < 4) {
     res.status(400).json({
@@ -151,368 +119,38 @@ function handleCredentials(req, res) {
     });
     return;
   }
-  const db = getDB();
-  db.settings.adminUsername = String(username).trim();
-  db.settings.adminPassword = String(password);
-  saveDB(db);
+  await store.updateCredentials(String(username).trim(), String(password));
   res.status(200).json({ ok: true });
 }
 
 // ---------- scan ----------
-function handleScan(req, res) {
+async function handleScan(req, res) {
   const { id } = req.body || {};
-  const db = getDB();
-  const p = db.roster.find((x) => x.id === id);
-  if (!p) {
-    res.status(404).json({ ok: false, message: 'ID kartu tidak terdaftar.' });
-    return;
-  }
-
-  const tk = todayKey();
-  if (!db.logs[tk]) db.logs[tk] = [];
-  let entry = db.logs[tk].find((r) => r.pesertaId === p.id);
-  const now = new Date();
-  const waktu = formatJam(now);
-
-  // Kalau hari ini sudah ada catatan izin/sakit/cuti yang disetujui tapi peserta
-  // ternyata tetap datang dan scan, catatan izin itu ditimpa jadi absen masuk asli.
-  if (entry && entry.sumber === 'izin') {
-    db.logs[tk] = db.logs[tk].filter((r) => r.pesertaId !== p.id);
-    entry = null;
-  }
-
-  if (!entry) {
-    // Bandingkan menggunakan waktu Jakarta (WIB), bukan waktu server (biasanya UTC),
-    // supaya "Batas jam masuk" yang diisi admin (mis. 08:00) konsisten dengan jam WIB asli.
-    const nowJakarta = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-    const [jh, jm] = db.settings.jamMasuk.split(':').map(Number);
-    const batas = new Date(nowJakarta);
-    batas.setHours(jh, jm + (db.settings.toleransi || 0), 0, 0);
-    const statusMasuk = nowJakarta <= batas ? 'Tepat waktu' : 'Terlambat';
-
-    entry = {
-      pesertaId: p.id,
-      nama: p.nama,
-      tanggal: tk,
-      jamMasuk: waktu,
-      statusMasuk,
-      jamPulang: null,
-      pulangManual: false,
-      sumber: 'scan'
-    };
-    db.logs[tk].push(entry);
-    saveDB(db);
-    res.status(200).json({
-      ok: true,
-      peserta: p,
-      jenis: 'Masuk',
-      waktu,
-      status: statusMasuk,
-      message: `Absen masuk tercatat · ${waktu} · ${statusMasuk}`
-    });
-    return;
-  }
-
-  if (!entry.jamPulang) {
-    entry.jamPulang = waktu;
-    entry.pulangManual = false;
-    saveDB(db);
-    res.status(200).json({
-      ok: true,
-      peserta: p,
-      jenis: 'Pulang',
-      waktu,
-      message: `Absen pulang tercatat · ${waktu}`
-    });
-    return;
-  }
-
-  res.status(200).json({ ok: false, peserta: p, message: 'Sudah tercatat pulang hari ini.' });
+  const result = await store.processScan(id);
+  const statusCode = 'peserta' in result ? 200 : 404;
+  res.status(statusCode).json(result);
 }
 
 // ---------- mark-pulang ----------
-function handleMarkPulang(req, res) {
+async function handleMarkPulang(req, res) {
   const { pesertaId } = req.body || {};
-  const db = getDB();
-  const tk = todayKey();
-  const entry = (db.logs[tk] || []).find((r) => r.pesertaId === pesertaId);
-
-  if (!entry || entry.jamPulang) {
-    res.status(400).json({
-      ok: false,
-      message: 'Peserta belum tercatat masuk hari ini, atau sudah tercatat pulang.'
-    });
-    return;
-  }
-
-  entry.jamPulang = formatJam(new Date());
-  entry.pulangManual = true;
-  saveDB(db);
-  res.status(200).json({ ok: true, entry });
+  const result = await store.markPulangManual(pesertaId);
+  res.status(result.ok ? 200 : 400).json(result);
 }
 
 // ---------- today ----------
-function handleToday(req, res) {
-  const db = getDB();
-  const tk = todayKey();
-  res.status(200).json({ tanggal: tk, log: db.logs[tk] || [] });
+async function handleToday(req, res) {
+  const data = await store.getTodayLog();
+  res.status(200).json(data);
 }
 
 // ---------- history ----------
-function handleHistory(req, res) {
+async function handleHistory(req, res) {
   const pesertaId = req.q && req.q.pesertaId;
   if (!pesertaId) {
     res.status(400).json({ ok: false, message: 'pesertaId wajib diisi.' });
     return;
   }
-
-  const db = getDB();
-  const rows = [];
-  Object.keys(db.logs)
-    .sort()
-    .reverse()
-    .forEach((tanggal) => {
-      const entry = (db.logs[tanggal] || []).find((r) => r.pesertaId === pesertaId);
-      if (entry) rows.push(entry);
-    });
-
-  res.status(200).json({ history: rows });
-}
-
-// ---------- izin ----------
-const JENIS_IZIN_VALID = ['Izin', 'Sakit', 'Cuti'];
-const MAKS_HARI_MUNDUR = 3; // batas ajuan susulan: maksimal 3 hari ke belakang
-const MAKS_UKURAN_BUKTI = 1_800_000; // ~1.3MB file asli setelah encode base64 (data URL)
-
-function selisihHari(dariTk, keTk) {
-  // Selisih kalender dalam hari antara dua tanggal 'YYYY-MM-DD'. Positif = keTk di masa depan.
-  const a = new Date(dariTk + 'T00:00:00');
-  const b = new Date(keTk + 'T00:00:00');
-  return Math.round((b - a) / 86400000);
-}
-
-function handleIzinList(req, res) {
-  const db = getDB();
-  const pesertaId = req.q && req.q.pesertaId;
-  const status = req.q && req.q.status;
-
-  let rows = db.izin.slice();
-  if (pesertaId) rows = rows.filter((r) => r.pesertaId === pesertaId);
-  if (status && status !== 'Semua') rows = rows.filter((r) => r.status === status);
-  rows.sort((a, b) => (a.diajukanPada < b.diajukanPada ? 1 : -1));
-
-  res.status(200).json({ izin: rows });
-}
-
-function handleIzinAjukan(req, res) {
-  const { pesertaId, tanggal, jenis, alasan, buktiFoto } = req.body || {};
-  const db = getDB();
-
-  const p = db.roster.find((x) => x.id === pesertaId);
-  if (!p) {
-    res.status(404).json({ ok: false, message: 'Peserta tidak ditemukan.' });
-    return;
-  }
-  if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-    res.status(400).json({ ok: false, message: 'Tanggal izin wajib diisi.' });
-    return;
-  }
-  if (!JENIS_IZIN_VALID.includes(jenis)) {
-    res.status(400).json({ ok: false, message: 'Jenis izin tidak valid.' });
-    return;
-  }
-  if (!alasan || !String(alasan).trim()) {
-    res.status(400).json({ ok: false, message: 'Alasan wajib diisi.' });
-    return;
-  }
-
-  const todayTk = todayKey();
-  const selisih = selisihHari(todayTk, tanggal); // negatif = tanggal sudah lewat
-  if (selisih < -MAKS_HARI_MUNDUR) {
-    res.status(400).json({
-      ok: false,
-      message: `Tidak bisa mengajukan izin untuk tanggal lebih dari ${MAKS_HARI_MUNDUR} hari yang lalu.`
-    });
-    return;
-  }
-  const susulan = selisih < 0;
-
-  if (buktiFoto) {
-    if (typeof buktiFoto !== 'string' || !buktiFoto.startsWith('data:image/')) {
-      res.status(400).json({ ok: false, message: 'Format lampiran bukti tidak valid.' });
-      return;
-    }
-    if (buktiFoto.length > MAKS_UKURAN_BUKTI) {
-      res.status(400).json({
-        ok: false,
-        message: 'Ukuran lampiran bukti terlalu besar. Gunakan foto yang lebih kecil.'
-      });
-      return;
-    }
-  }
-
-  const sudahAda = db.izin.find(
-    (r) => r.pesertaId === pesertaId && r.tanggal === tanggal && r.status !== 'Ditolak'
-  );
-  if (sudahAda) {
-    res.status(400).json({
-      ok: false,
-      message: 'Sudah ada pengajuan izin untuk tanggal tersebut.'
-    });
-    return;
-  }
-
-  const item = {
-    id: 'IZN-' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 900 + 100),
-    pesertaId,
-    nama: p.nama,
-    tanggal,
-    jenis,
-    alasan: String(alasan).trim(),
-    susulan,
-    buktiFoto: buktiFoto || null,
-    status: 'Menunggu',
-    diajukanPada: new Date().toISOString(),
-    diprosesPada: null
-  };
-  db.izin.push(item);
-  saveDB(db);
-  res.status(200).json({ ok: true, izin: item });
-}
-
-function handleIzinApprove(req, res) {
-  const { izinId } = req.body || {};
-  const db = getDB();
-  const item = db.izin.find((r) => r.id === izinId);
-  if (!item) {
-    res.status(404).json({ ok: false, message: 'Pengajuan izin tidak ditemukan.' });
-    return;
-  }
-  if (item.status !== 'Menunggu') {
-    res.status(400).json({ ok: false, message: 'Pengajuan ini sudah diproses sebelumnya.' });
-    return;
-  }
-
-  if (!db.logs[item.tanggal]) db.logs[item.tanggal] = [];
-  const bentrok = db.logs[item.tanggal].find((r) => r.pesertaId === item.pesertaId);
-  if (bentrok) {
-    res.status(400).json({
-      ok: false,
-      message: 'Peserta sudah punya catatan kehadiran (scan) di tanggal tersebut.'
-    });
-    return;
-  }
-
-  db.logs[item.tanggal].push({
-    pesertaId: item.pesertaId,
-    nama: item.nama,
-    tanggal: item.tanggal,
-    jamMasuk: null,
-    statusMasuk: item.jenis, // 'Izin' | 'Sakit' | 'Cuti'
-    jamPulang: null,
-    pulangManual: false,
-    sumber: 'izin',
-    alasan: item.alasan,
-    susulan: item.susulan,
-    buktiFoto: item.buktiFoto
-  });
-
-  item.status = 'Disetujui';
-  item.diprosesPada = new Date().toISOString();
-  saveDB(db);
-  res.status(200).json({ ok: true, izin: item });
-}
-
-function handleIzinReject(req, res) {
-  const { izinId } = req.body || {};
-  const db = getDB();
-  const item = db.izin.find((r) => r.id === izinId);
-  if (!item) {
-    res.status(404).json({ ok: false, message: 'Pengajuan izin tidak ditemukan.' });
-    return;
-  }
-  if (item.status !== 'Menunggu') {
-    res.status(400).json({ ok: false, message: 'Pengajuan ini sudah diproses sebelumnya.' });
-    return;
-  }
-
-  item.status = 'Ditolak';
-  item.diprosesPada = new Date().toISOString();
-  saveDB(db);
-  res.status(200).json({ ok: true, izin: item });
-}
-
-// ---------- statistik ----------
-function addDays(tk, delta) {
-  const d = new Date(tk + 'T00:00:00');
-  d.setDate(d.getDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
-function handleStats(req, res) {
-  const db = getDB();
-  let days = parseInt((req.q && req.q.days) || '14', 10);
-  if (!Number.isFinite(days)) days = 14;
-  days = Math.min(60, Math.max(7, days));
-
-  const todayTk = todayKey();
-  const tanggalList = [];
-  for (let i = days - 1; i >= 0; i--) tanggalList.push(addDays(todayTk, -i));
-
-  const daily = tanggalList.map((tanggal) => {
-    const entries = db.logs[tanggal] || [];
-    return {
-      tanggal,
-      hadir: entries.filter((e) => e.sumber === 'scan').length,
-      tepat: entries.filter((e) => e.statusMasuk === 'Tepat waktu').length,
-      terlambat: entries.filter((e) => e.statusMasuk === 'Terlambat').length,
-      izin: entries.filter((e) => e.sumber === 'izin').length
-    };
-  });
-
-  const ringkasan = daily.reduce(
-    (acc, d) => {
-      acc.totalHadir += d.hadir;
-      acc.totalTepat += d.tepat;
-      acc.totalTerlambat += d.terlambat;
-      acc.totalIzin += d.izin;
-      return acc;
-    },
-    { totalHadir: 0, totalTepat: 0, totalTerlambat: 0, totalIzin: 0 }
-  );
-  ringkasan.persenTepatWaktu =
-    ringkasan.totalHadir > 0 ? Math.round((ringkasan.totalTepat / ringkasan.totalHadir) * 100) : null;
-
-  const perPeserta = {};
-  tanggalList.forEach((tanggal) => {
-    (db.logs[tanggal] || []).forEach((e) => {
-      if (!perPeserta[e.pesertaId]) {
-        perPeserta[e.pesertaId] = { pesertaId: e.pesertaId, nama: e.nama, hadir: 0, tepat: 0, terlambat: 0, izin: 0 };
-      }
-      const row = perPeserta[e.pesertaId];
-      row.nama = e.nama;
-      if (e.sumber === 'scan') {
-        row.hadir += 1;
-        if (e.statusMasuk === 'Tepat waktu') row.tepat += 1;
-        if (e.statusMasuk === 'Terlambat') row.terlambat += 1;
-      } else if (e.sumber === 'izin') {
-        row.izin += 1;
-      }
-    });
-  });
-
-  const peringkat = Object.values(perPeserta)
-    .map((r) => ({ ...r, persenTepatWaktu: r.hadir > 0 ? Math.round((r.tepat / r.hadir) * 100) : null }))
-    .sort((a, b) => {
-      if (a.persenTepatWaktu === null) return 1;
-      if (b.persenTepatWaktu === null) return -1;
-      return b.persenTepatWaktu - a.persenTepatWaktu || b.hadir - a.hadir;
-    });
-
-  res.status(200).json({
-    range: { from: tanggalList[0], to: tanggalList[tanggalList.length - 1], days },
-    daily,
-    ringkasan,
-    peringkat
-  });
+  const history = await store.getHistory(pesertaId);
+  res.status(200).json({ history });
 }
