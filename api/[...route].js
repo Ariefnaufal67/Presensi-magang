@@ -280,6 +280,15 @@ function handleHistory(req, res) {
 
 // ---------- izin ----------
 const JENIS_IZIN_VALID = ['Izin', 'Sakit', 'Cuti'];
+const MAKS_HARI_MUNDUR = 3; // batas ajuan susulan: maksimal 3 hari ke belakang
+const MAKS_UKURAN_BUKTI = 1_800_000; // ~1.3MB file asli setelah encode base64 (data URL)
+
+function selisihHari(dariTk, keTk) {
+  // Selisih kalender dalam hari antara dua tanggal 'YYYY-MM-DD'. Positif = keTk di masa depan.
+  const a = new Date(dariTk + 'T00:00:00');
+  const b = new Date(keTk + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
 
 function handleIzinList(req, res) {
   const db = getDB();
@@ -288,14 +297,14 @@ function handleIzinList(req, res) {
 
   let rows = db.izin.slice();
   if (pesertaId) rows = rows.filter((r) => r.pesertaId === pesertaId);
-  if (status) rows = rows.filter((r) => r.status === status);
+  if (status && status !== 'Semua') rows = rows.filter((r) => r.status === status);
   rows.sort((a, b) => (a.diajukanPada < b.diajukanPada ? 1 : -1));
 
   res.status(200).json({ izin: rows });
 }
 
 function handleIzinAjukan(req, res) {
-  const { pesertaId, tanggal, jenis, alasan } = req.body || {};
+  const { pesertaId, tanggal, jenis, alasan, buktiFoto } = req.body || {};
   const db = getDB();
 
   const p = db.roster.find((x) => x.id === pesertaId);
@@ -315,6 +324,32 @@ function handleIzinAjukan(req, res) {
     res.status(400).json({ ok: false, message: 'Alasan wajib diisi.' });
     return;
   }
+
+  const todayTk = todayKey();
+  const selisih = selisihHari(todayTk, tanggal); // negatif = tanggal sudah lewat
+  if (selisih < -MAKS_HARI_MUNDUR) {
+    res.status(400).json({
+      ok: false,
+      message: `Tidak bisa mengajukan izin untuk tanggal lebih dari ${MAKS_HARI_MUNDUR} hari yang lalu.`
+    });
+    return;
+  }
+  const susulan = selisih < 0;
+
+  if (buktiFoto) {
+    if (typeof buktiFoto !== 'string' || !buktiFoto.startsWith('data:image/')) {
+      res.status(400).json({ ok: false, message: 'Format lampiran bukti tidak valid.' });
+      return;
+    }
+    if (buktiFoto.length > MAKS_UKURAN_BUKTI) {
+      res.status(400).json({
+        ok: false,
+        message: 'Ukuran lampiran bukti terlalu besar. Gunakan foto yang lebih kecil.'
+      });
+      return;
+    }
+  }
+
   const sudahAda = db.izin.find(
     (r) => r.pesertaId === pesertaId && r.tanggal === tanggal && r.status !== 'Ditolak'
   );
@@ -333,6 +368,8 @@ function handleIzinAjukan(req, res) {
     tanggal,
     jenis,
     alasan: String(alasan).trim(),
+    susulan,
+    buktiFoto: buktiFoto || null,
     status: 'Menunggu',
     diajukanPada: new Date().toISOString(),
     diprosesPada: null
@@ -374,7 +411,9 @@ function handleIzinApprove(req, res) {
     jamPulang: null,
     pulangManual: false,
     sumber: 'izin',
-    alasan: item.alasan
+    alasan: item.alasan,
+    susulan: item.susulan,
+    buktiFoto: item.buktiFoto
   });
 
   item.status = 'Disetujui';

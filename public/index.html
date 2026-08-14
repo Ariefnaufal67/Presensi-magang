@@ -102,6 +102,7 @@
   .mini-btn.approve:hover{border-color:var(--green);color:var(--green);}
   textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:'Inter';font-size:13.5px;resize:vertical;min-height:60px;}
   textarea:focus{outline:2px solid var(--lime);outline-offset:1px;}
+  #izinFilterTabs button{font-size:11px;padding:8px 4px;}
   .empty-row td{text-align:center;color:var(--ink-soft);padding:22px;font-size:12.5px;}
 
   /* ---- Kiosk ---- */
@@ -224,7 +225,7 @@
 
       <div class="side-card">
         <h2>Ajukan Izin</h2>
-        <p class="desc">Tidak bisa hadir? Ajukan izin, sakit, atau cuti di sini. Kalau disetujui admin, hari itu tidak dihitung alpha.</p>
+        <p class="desc">Tidak bisa hadir? Ajukan izin, sakit, atau cuti di sini. Kalau disetujui admin, hari itu tidak dihitung alpha. Bisa diajukan maksimal 3 hari susulan ke belakang.</p>
         <div class="field-pair" style="margin-bottom:10px;">
           <div><label>Tanggal</label><input type="date" id="izinTanggal"></div>
           <div><label>Jenis</label>
@@ -237,6 +238,11 @@
         </div>
         <label>Alasan</label>
         <textarea id="izinAlasan" placeholder="Jelaskan alasanmu secara singkat" style="margin-bottom:10px;"></textarea>
+        <label>Lampiran bukti (opsional, mis. surat sakit)</label>
+        <input type="file" id="izinBukti" accept="image/*" style="margin-bottom:6px;">
+        <div id="izinBuktiPreviewWrap" style="display:none;margin-bottom:10px;">
+          <img id="izinBuktiPreview" style="max-width:120px;border-radius:8px;border:1px solid var(--line);display:block;">
+        </div>
         <button class="btn ghost" id="submitIzin">Ajukan Izin</button>
         <div id="izinSubmitMsg"></div>
       </div>
@@ -313,6 +319,12 @@
         <div class="side-card">
           <h2>Pengajuan Izin <span id="izinPendingCount" class="idcard-tag" style="display:none;"></span></h2>
           <p class="desc">Setujui atau tolak pengajuan izin/sakit/cuti dari peserta magang.</p>
+          <div class="segmented" style="margin-bottom:14px;" id="izinFilterTabs">
+            <button data-status="Menunggu" class="active">Menunggu</button>
+            <button data-status="Disetujui">Disetujui</button>
+            <button data-status="Ditolak">Ditolak</button>
+            <button data-status="Semua">Semua</button>
+          </div>
           <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
         </div>
 
@@ -435,9 +447,11 @@
       viewBadge.classList.add('active');
       loadHistory(currentPeserta.id);
       loadIzinRiwayat(currentPeserta.id);
-      const today = new Date().toISOString().slice(0,10);
-      document.getElementById('izinTanggal').min = today;
-      document.getElementById('izinTanggal').value = today;
+      const today = new Date();
+      const minDate = new Date(today); minDate.setDate(minDate.getDate() - 3);
+      document.getElementById('izinTanggal').min = minDate.toISOString().slice(0,10);
+      document.getElementById('izinTanggal').value = today.toISOString().slice(0,10);
+      resetIzinBuktiInput();
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
     }
@@ -483,6 +497,52 @@
   }
 
   // ---------- izin (peserta) ----------
+  let izinBuktiDataUrl = null;
+
+  function resetIzinBuktiInput(){
+    izinBuktiDataUrl = null;
+    document.getElementById('izinBukti').value = '';
+    document.getElementById('izinBuktiPreviewWrap').style.display = 'none';
+  }
+
+  function compressImage(file, maxWidth){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onerror = ()=>reject(new Error('Gagal membaca file.'));
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onerror = ()=>reject(new Error('File bukan gambar yang valid.'));
+        img.onload = ()=>{
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.getElementById('izinBukti').addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    const msg = document.getElementById('izinSubmitMsg');
+    msg.innerHTML = '';
+    if(!file) { resetIzinBuktiInput(); return; }
+    try{
+      izinBuktiDataUrl = await compressImage(file, 900);
+      const preview = document.getElementById('izinBuktiPreview');
+      preview.src = izinBuktiDataUrl;
+      document.getElementById('izinBuktiPreviewWrap').style.display = 'block';
+    }catch(err){
+      izinBuktiDataUrl = null;
+      msg.innerHTML = `<div class="msg-err">${escapeHtml(err.message || 'Gagal memproses gambar.')}</div>`;
+    }
+  });
+
   document.getElementById('submitIzin').addEventListener('click', async ()=>{
     const tanggal = document.getElementById('izinTanggal').value;
     const jenis = document.getElementById('izinJenis').value;
@@ -492,16 +552,22 @@
     if(!currentPeserta) return;
     const { ok, data } = await api('/api/izin', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ pesertaId: currentPeserta.id, tanggal, jenis, alasan })
+      body: JSON.stringify({ pesertaId: currentPeserta.id, tanggal, jenis, alasan, buktiFoto: izinBuktiDataUrl })
     });
     if(ok && data.ok){
       document.getElementById('izinAlasan').value = '';
+      resetIzinBuktiInput();
       msg.innerHTML = '<div class="msg-ok">Pengajuan izin terkirim, menunggu persetujuan admin.</div>';
       loadIzinRiwayat(currentPeserta.id);
     } else {
       msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal mengajukan izin.')}</div>`;
     }
   });
+
+  function buktiThumbHtml(buktiFoto){
+    if(!buktiFoto) return '';
+    return `<a href="${buktiFoto}" target="_blank" rel="noopener"><img src="${buktiFoto}" alt="Bukti" style="max-width:70px;border-radius:6px;border:1px solid var(--line);display:block;margin-top:6px;"></a>`;
+  }
 
   async function loadIzinRiwayat(pesertaId){
     const el = document.getElementById('izinRiwayatList');
@@ -513,12 +579,14 @@
     }
     el.innerHTML = data.izin.map(r=>{
       const statusClass = r.status==='Disetujui' ? 'izin' : r.status==='Ditolak' ? 'ditolak' : 'menunggu';
+      const susulanTag = r.susulan ? ' <span class="pill dash">susulan</span>' : '';
       return `<div class="izin-item">
         <div class="izin-item-top">
-          <span>${escapeHtml(r.jenis)} · ${formatTanggalSingkat(r.tanggal)}</span>
+          <span>${escapeHtml(r.jenis)} · ${formatTanggalSingkat(r.tanggal)}${susulanTag}</span>
           <span class="pill ${statusClass}">${escapeHtml(r.status)}</span>
         </div>
         <div class="izin-item-alasan">${escapeHtml(r.alasan)}</div>
+        ${buktiThumbHtml(r.buktiFoto)}
       </div>`;
     }).join('');
   }
@@ -535,8 +603,18 @@
     await refreshIzinPending();
   }
 
+  let izinFilterStatus = 'Menunggu';
+  document.getElementById('izinFilterTabs').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-status]');
+    if(!btn) return;
+    document.querySelectorAll('#izinFilterTabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    izinFilterStatus = btn.dataset.status;
+    refreshIzinPending();
+  });
+
   async function refreshIzinPending(){
-    const { ok, data } = await api('/api/izin?status=Menunggu');
+    const { ok, data } = await api('/api/izin?status=' + encodeURIComponent(izinFilterStatus));
     if(!ok) return;
     renderIzinPending(data.izin || []);
   }
@@ -545,60 +623,67 @@
     const countTag = document.getElementById('izinPendingCount');
     if(list.length===0){
       countTag.style.display = 'none';
-      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Tidak ada pengajuan yang menunggu persetujuan.</div>';
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Tidak ada pengajuan di kategori ini.</div>';
       return;
     }
     countTag.style.display = 'inline-block';
-    countTag.textContent = list.length + ' menunggu';
+    countTag.textContent = list.length;
     el.innerHTML = '';
     list.forEach(r=>{
       const item = document.createElement('div');
       item.className = 'izin-item';
+      const susulanTag = r.susulan ? ' <span class="pill dash">susulan</span>' : '';
+      const statusClass = r.status==='Disetujui' ? 'izin' : r.status==='Ditolak' ? 'ditolak' : 'menunggu';
       item.innerHTML = `
         <div class="izin-item-top">
           <span>${escapeHtml(r.nama)}</span>
           <span class="pill izin">${escapeHtml(r.jenis)}</span>
         </div>
-        <div class="izin-item-meta">${formatTanggalSingkat(r.tanggal)}</div>
+        <div class="izin-item-meta">${formatTanggalSingkat(r.tanggal)}${susulanTag} · <span class="pill ${statusClass}" style="margin-left:2px;">${escapeHtml(r.status)}</span></div>
         <div class="izin-item-alasan">${escapeHtml(r.alasan)}</div>
+        ${buktiThumbHtml(r.buktiFoto)}
       `;
-      const actions = document.createElement('div');
-      actions.className = 'izin-item-actions';
 
-      const approveBtn = document.createElement('button');
-      approveBtn.className = 'mini-btn approve';
-      approveBtn.textContent = 'Setujui';
-      approveBtn.addEventListener('click', async ()=>{
-        const { ok, data } = await api('/api/izin-approve', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ izinId: r.id })
+      if(r.status === 'Menunggu'){
+        const actions = document.createElement('div');
+        actions.className = 'izin-item-actions';
+
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'mini-btn approve';
+        approveBtn.textContent = 'Setujui';
+        approveBtn.addEventListener('click', async ()=>{
+          const { ok, data } = await api('/api/izin-approve', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ izinId: r.id })
+          });
+          if(ok && data.ok){
+            await refreshIzinPending();
+            await refreshToday();
+          } else {
+            alert((data && data.message) || 'Gagal menyetujui izin.');
+          }
         });
-        if(ok && data.ok){
-          await refreshIzinPending();
-          await refreshToday();
-        } else {
-          alert((data && data.message) || 'Gagal menyetujui izin.');
-        }
-      });
-      actions.appendChild(approveBtn);
+        actions.appendChild(approveBtn);
 
-      const rejectBtn = document.createElement('button');
-      rejectBtn.className = 'mini-btn';
-      rejectBtn.textContent = 'Tolak';
-      rejectBtn.addEventListener('click', async ()=>{
-        const { ok, data } = await api('/api/izin-reject', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ izinId: r.id })
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'mini-btn';
+        rejectBtn.textContent = 'Tolak';
+        rejectBtn.addEventListener('click', async ()=>{
+          const { ok, data } = await api('/api/izin-reject', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ izinId: r.id })
+          });
+          if(ok && data.ok){
+            await refreshIzinPending();
+          } else {
+            alert((data && data.message) || 'Gagal menolak izin.');
+          }
         });
-        if(ok && data.ok){
-          await refreshIzinPending();
-        } else {
-          alert((data && data.message) || 'Gagal menolak izin.');
-        }
-      });
-      actions.appendChild(rejectBtn);
+        actions.appendChild(rejectBtn);
 
-      item.appendChild(actions);
+        item.appendChild(actions);
+      }
+
       el.appendChild(item);
     });
   }
