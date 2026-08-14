@@ -43,6 +43,7 @@ module.exports = (req, res) => {
     if (route === 'izin' && method === 'POST') return handleIzinAjukan(req, res);
     if (route === 'izin-approve' && method === 'POST') return handleIzinApprove(req, res);
     if (route === 'izin-reject' && method === 'POST') return handleIzinReject(req, res);
+    if (route === 'stats' && method === 'GET') return handleStats(req, res);
 
     res.status(404).json({ ok: false, message: 'Endpoint tidak ditemukan: ' + route });
   } catch (e) {
@@ -439,4 +440,79 @@ function handleIzinReject(req, res) {
   item.diprosesPada = new Date().toISOString();
   saveDB(db);
   res.status(200).json({ ok: true, izin: item });
+}
+
+// ---------- statistik ----------
+function addDays(tk, delta) {
+  const d = new Date(tk + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function handleStats(req, res) {
+  const db = getDB();
+  let days = parseInt((req.q && req.q.days) || '14', 10);
+  if (!Number.isFinite(days)) days = 14;
+  days = Math.min(60, Math.max(7, days));
+
+  const todayTk = todayKey();
+  const tanggalList = [];
+  for (let i = days - 1; i >= 0; i--) tanggalList.push(addDays(todayTk, -i));
+
+  const daily = tanggalList.map((tanggal) => {
+    const entries = db.logs[tanggal] || [];
+    return {
+      tanggal,
+      hadir: entries.filter((e) => e.sumber === 'scan').length,
+      tepat: entries.filter((e) => e.statusMasuk === 'Tepat waktu').length,
+      terlambat: entries.filter((e) => e.statusMasuk === 'Terlambat').length,
+      izin: entries.filter((e) => e.sumber === 'izin').length
+    };
+  });
+
+  const ringkasan = daily.reduce(
+    (acc, d) => {
+      acc.totalHadir += d.hadir;
+      acc.totalTepat += d.tepat;
+      acc.totalTerlambat += d.terlambat;
+      acc.totalIzin += d.izin;
+      return acc;
+    },
+    { totalHadir: 0, totalTepat: 0, totalTerlambat: 0, totalIzin: 0 }
+  );
+  ringkasan.persenTepatWaktu =
+    ringkasan.totalHadir > 0 ? Math.round((ringkasan.totalTepat / ringkasan.totalHadir) * 100) : null;
+
+  const perPeserta = {};
+  tanggalList.forEach((tanggal) => {
+    (db.logs[tanggal] || []).forEach((e) => {
+      if (!perPeserta[e.pesertaId]) {
+        perPeserta[e.pesertaId] = { pesertaId: e.pesertaId, nama: e.nama, hadir: 0, tepat: 0, terlambat: 0, izin: 0 };
+      }
+      const row = perPeserta[e.pesertaId];
+      row.nama = e.nama;
+      if (e.sumber === 'scan') {
+        row.hadir += 1;
+        if (e.statusMasuk === 'Tepat waktu') row.tepat += 1;
+        if (e.statusMasuk === 'Terlambat') row.terlambat += 1;
+      } else if (e.sumber === 'izin') {
+        row.izin += 1;
+      }
+    });
+  });
+
+  const peringkat = Object.values(perPeserta)
+    .map((r) => ({ ...r, persenTepatWaktu: r.hadir > 0 ? Math.round((r.tepat / r.hadir) * 100) : null }))
+    .sort((a, b) => {
+      if (a.persenTepatWaktu === null) return 1;
+      if (b.persenTepatWaktu === null) return -1;
+      return b.persenTepatWaktu - a.persenTepatWaktu || b.hadir - a.hadir;
+    });
+
+  res.status(200).json({
+    range: { from: tanggalList[0], to: tanggalList[tanggalList.length - 1], days },
+    daily,
+    ringkasan,
+    peringkat
+  });
 }

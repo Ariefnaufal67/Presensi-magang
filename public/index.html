@@ -8,14 +8,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#10161D; --surface:#1A222B; --surface-2:#212B35; --line:#2C3742;
-    --ink:#F3F6F5; --ink-soft:#8B96A3;
-    --lime:#C6F135; --lime-dim:#3A4321;
-    --coral:#FF6B4A; --coral-dim:#3D2620;
-    --green:#3FD67F; --green-dim:#173226;
-    --radius:16px; --shadow:0 20px 50px -20px rgba(0,0,0,.6);
+    --bg:#FBF1E3; --surface:#F5E4CC; --surface-2:#EFD9B8; --line:#DEC49A;
+    --ink:#3A2A1C; --ink-soft:#8A6F52;
+    --lime:#C1592E; --lime-dim:#F2D9C1; --ink-on-accent:#FDF6EC;
+    --coral:#C0392B; --coral-dim:#F4D8CE;
+    --green:#5C7A34; --green-dim:#E1E7C9;
+    --radius:16px; --shadow:0 20px 50px -20px rgba(58,42,28,.35);
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -45,12 +46,12 @@
   .login-hero p{color:var(--ink-soft);font-size:13px;margin:0;line-height:1.5;}
   .segmented{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:10px;border:1px solid var(--line);margin-bottom:18px;}
   .segmented button{flex:1;border:none;background:transparent;padding:10px;border-radius:8px;font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;font-family:'Inter';}
-  .segmented button.active{background:var(--lime);color:#10160D;}
+  .segmented button.active{background:var(--lime);color:var(--ink-on-accent);}
   .picker{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;}
   label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
   select,input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:'Inter';font-size:13.5px;}
   select:focus,input:focus{outline:2px solid var(--lime);outline-offset:1px;}
-  .btn{width:100%;padding:12px;border:none;border-radius:10px;background:var(--lime);color:#10160D;font-weight:700;font-size:13.5px;cursor:pointer;font-family:'Inter';}
+  .btn{width:100%;padding:12px;border:none;border-radius:10px;background:var(--lime);color:var(--ink-on-accent);font-weight:700;font-size:13.5px;cursor:pointer;font-family:'Inter';}
   .btn:hover{filter:brightness(1.08);}
   .btn:disabled{opacity:.6;cursor:default;}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
@@ -64,15 +65,15 @@
   .greet-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
   .greet-card h2{font-size:16px;margin:0 0 4px;}
   .greet-card p{font-size:12.5px;color:var(--ink-soft);margin:0;line-height:1.5;}
-  .idcard{position:relative;background:linear-gradient(155deg,#1E2833,#141C24);border:1px solid var(--line);border-radius:20px;padding:26px 22px 22px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px;}
+  .idcard{position:relative;background:linear-gradient(155deg,#3B2A1B,#20150D);border:1px solid var(--line);border-radius:20px;padding:26px 22px 22px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px;}
   .idcard::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:56px;height:10px;background:var(--bg);border-radius:0 0 8px 8px;}
   .idcard-top{display:flex;align-items:center;gap:12px;margin:14px 0 18px;}
-  .avatar{width:46px;height:46px;border-radius:50%;background:var(--lime);color:#10160D;display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;flex-shrink:0;}
-  .idcard-name{font-family:'Outfit';font-weight:700;font-size:17px;line-height:1.2;}
-  .idcard-role{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .avatar{width:46px;height:46px;border-radius:50%;background:var(--lime);color:var(--ink-on-accent);display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;flex-shrink:0;}
+  .idcard-name{font-family:'Outfit';font-weight:700;font-size:17px;line-height:1.2;color:var(--ink-on-accent);}
+  .idcard-role{font-size:11.5px;color:#C9AF8E;margin-top:2px;}
   .idcard-qr{background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
   .idcard-foot{display:flex;justify-content:space-between;align-items:center;}
-  .idcard-id{font-family:'JetBrains Mono';font-size:12px;color:var(--ink-soft);}
+  .idcard-id{font-family:'JetBrains Mono';font-size:12px;color:#C9AF8E;}
   .idcard-tag{font-family:'JetBrains Mono';font-size:10.5px;background:var(--lime-dim);color:var(--lime);padding:3px 8px;border-radius:20px;}
 
   .side-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
@@ -90,7 +91,7 @@
   .pill.terlambat{background:var(--coral-dim);color:var(--coral);}
   .pill.dash{color:var(--ink-soft);}
   .pill.izin{background:var(--lime-dim);color:var(--lime);}
-  .pill.menunggu{background:#3D3520;color:#E8C752;}
+  .pill.menunggu{background:#F6E4B8;color:#8A5A12;}
   .pill.ditolak{background:var(--coral-dim);color:var(--coral);}
 
   .izin-item{padding:10px 0;border-bottom:1px solid var(--line);}
@@ -108,30 +109,42 @@
   .bukti-thumb img{max-width:70px;border-radius:6px;border:1px solid var(--line);display:block;transition:opacity .15s;}
   .bukti-thumb:hover img{opacity:.85;}
 
-  .img-modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,12,10,.88);z-index:999;align-items:center;justify-content:center;padding:24px;}
+  .img-modal-overlay{display:none;position:fixed;inset:0;background:rgba(32,21,13,.85);z-index:999;align-items:center;justify-content:center;padding:24px;}
   .img-modal-overlay.show{display:flex;}
-  .img-modal-img{max-width:min(90vw,700px);max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
-  .img-modal-close{position:absolute;top:18px;right:22px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;}
+  .img-modal-img{max-width:min(90vw,700px);max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(32,21,13,.5);}
+  .img-modal-close{position:absolute;top:18px;right:22px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;}
   .img-modal-close:hover{border-color:var(--coral);color:var(--coral);}
+
+  .mini-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+  .mini-stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .mini-stat-num{font-family:'Outfit';font-weight:700;font-size:20px;line-height:1.1;}
+  .mini-stat-label{font-size:10.5px;color:var(--ink-soft);margin-top:3px;}
+  .chart-wrap{position:relative;height:180px;margin-bottom:16px;}
+  .rank-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-num{width:20px;flex-shrink:0;font-family:'JetBrains Mono';font-size:12px;color:var(--ink-soft);}
+  .rank-name{flex:1;font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rank-pct{font-family:'JetBrains Mono';font-size:12.5px;font-weight:600;}
+  .rank-sub{font-size:10.5px;color:var(--ink-soft);}
   .empty-row td{text-align:center;color:var(--ink-soft);padding:22px;font-size:12.5px;}
 
   /* ---- Kiosk ---- */
   .kiosk-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;max-width:1180px;margin:0 auto;align-items:start;}
   @media (max-width:900px){.kiosk-grid{grid-template-columns:1fr;}}
-  .scan-stage{background:radial-gradient(circle at 50% 30%,#1C2731,#0D1218);border:1px solid var(--line);border-radius:var(--radius);padding:28px;display:flex;flex-direction:column;align-items:center;position:relative;box-shadow:var(--shadow);}
+  .scan-stage{background:radial-gradient(circle at 50% 30%,#3B2A1B,#1B120A);border:1px solid var(--line);border-radius:var(--radius);padding:28px;display:flex;flex-direction:column;align-items:center;position:relative;box-shadow:var(--shadow);}
   .scan-frame{width:100%;max-width:420px;aspect-ratio:1/1;border-radius:20px;overflow:hidden;position:relative;border:2px solid var(--line);}
   #reader{width:100%;height:100%;}
   .flash-overlay{position:absolute;inset:0;background:var(--green);opacity:0;pointer-events:none;transition:opacity .12s ease;}
   .flash-overlay.on{opacity:.35;}
   .scan-caption{margin-top:16px;text-align:center;}
-  .scan-caption h2{font-size:17px;margin:0 0 4px;}
-  .scan-caption p{font-size:12.5px;color:var(--ink-soft);margin:0;}
+  .scan-caption h2{font-size:17px;margin:0 0 4px;color:var(--ink-on-accent);}
+  .scan-caption p{font-size:12.5px;color:#C9AF8E;margin:0;}
   .manual-row{display:flex;gap:8px;margin-top:18px;width:100%;max-width:420px;}
   .result-banner{width:100%;max-width:420px;margin-top:16px;padding:16px;border-radius:14px;display:none;align-items:center;gap:14px;}
   .result-banner.show{display:flex;}
-  .result-banner.masuk{background:var(--green-dim);border:1px solid #1F5C3D;}
-  .result-banner.pulang{background:var(--coral-dim);border:1px solid #5C3226;}
-  .result-banner.error{background:var(--coral-dim);border:1px solid #5C3226;}
+  .result-banner.masuk{background:var(--green-dim);border:1px solid #A9B884;}
+  .result-banner.pulang{background:var(--coral-dim);border:1px solid #DCA99C;}
+  .result-banner.error{background:var(--coral-dim);border:1px solid #DCA99C;}
   .result-icon{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .result-name{font-family:'Outfit';font-weight:700;font-size:15px;}
   .result-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
@@ -164,7 +177,7 @@
   <div class="topbar">
     <div class="brand">
       <div class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="3" stroke="#10160D" stroke-width="2"/><circle cx="12" cy="10" r="2.4" stroke="#10160D" stroke-width="2"/><path d="M8 17h8" stroke="#10160D" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="3" stroke="#FDF6EC" stroke-width="2"/><circle cx="12" cy="10" r="2.4" stroke="#FDF6EC" stroke-width="2"/><path d="M8 17h8" stroke="#FDF6EC" stroke-width="2" stroke-linecap="round"/></svg>
       </div>
       <div>
         <div class="brand-name">Presensi</div>
@@ -303,6 +316,25 @@
         <div class="stats-row">
           <div class="stat-card green"><div class="stat-num" id="statMasuk">0</div><div class="stat-label">Sudah masuk</div></div>
           <div class="stat-card coral"><div class="stat-num" id="statPulang">0</div><div class="stat-label">Sudah pulang</div></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Statistik Kehadiran</h2>
+          <p class="desc">Ringkasan tren kehadiran & ketepatan waktu peserta magang.</p>
+          <div class="segmented" style="margin-bottom:14px;" id="statsPeriodTabs">
+            <button data-days="7">7 Hari</button>
+            <button data-days="14" class="active">14 Hari</button>
+            <button data-days="30">30 Hari</button>
+          </div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat"><div class="mini-stat-num" id="statTotalHadir">–</div><div class="mini-stat-label">Total hadir</div></div>
+            <div class="mini-stat"><div class="mini-stat-num" id="statPersenTepat">–</div><div class="mini-stat-label">Tepat waktu</div></div>
+            <div class="mini-stat"><div class="mini-stat-num" id="statTotalTerlambat">–</div><div class="mini-stat-label">Total terlambat</div></div>
+            <div class="mini-stat"><div class="mini-stat-num" id="statTotalIzin">–</div><div class="mini-stat-label">Izin/Sakit/Cuti</div></div>
+          </div>
+          <div class="chart-wrap"><canvas id="statsChart"></canvas></div>
+          <h2 style="font-size:14px;margin-bottom:6px;">Peringkat Ketepatan Waktu</h2>
+          <div id="statsPeringkat"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
         </div>
 
         <div class="side-card">
@@ -479,7 +511,7 @@
     document.getElementById('idcardId').textContent = p.id + ' · ' + p.nim;
     const qrBox = document.getElementById('idcardQr');
     qrBox.innerHTML = '';
-    new QRCode(qrBox, { text: 'KARTU|'+p.id, width:150, height:150, colorDark:'#10160D', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(qrBox, { text: 'KARTU|'+p.id, width:150, height:150, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
   }
 
   async function loadHistory(pesertaId){
@@ -631,6 +663,66 @@
     await refreshToday();
     await refreshRoster();
     await refreshIzinPending();
+    await refreshStats();
+  }
+
+  let statsPeriodDays = 14;
+  document.getElementById('statsPeriodTabs').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-days]');
+    if(!btn) return;
+    document.querySelectorAll('#statsPeriodTabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    statsPeriodDays = parseInt(btn.dataset.days, 10);
+    refreshStats();
+  });
+
+  let statsChartInstance = null;
+  async function refreshStats(){
+    const { ok, data } = await api('/api/stats?days=' + statsPeriodDays);
+    if(!ok) return;
+    document.getElementById('statTotalHadir').textContent = data.ringkasan.totalHadir;
+    document.getElementById('statPersenTepat').textContent = data.ringkasan.persenTepatWaktu===null ? '–' : data.ringkasan.persenTepatWaktu + '%';
+    document.getElementById('statTotalTerlambat').textContent = data.ringkasan.totalTerlambat;
+    document.getElementById('statTotalIzin').textContent = data.ringkasan.totalIzin;
+
+    const labels = data.daily.map(d => new Date(d.tanggal+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short'}));
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    if(statsChartInstance) statsChartInstance.destroy();
+    statsChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'Tepat waktu', data:data.daily.map(d=>d.tepat), backgroundColor:'#5C7A34', stack:'s' },
+          { label:'Terlambat', data:data.daily.map(d=>d.terlambat), backgroundColor:'#C0392B', stack:'s' },
+          { label:'Izin/Sakit/Cuti', data:data.daily.map(d=>d.izin), backgroundColor:'#C1592E', stack:'s' }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales:{
+          x:{ stacked:true, ticks:{ color:'#8A6F52', font:{size:10} }, grid:{ display:false } },
+          y:{ stacked:true, beginAtZero:true, ticks:{ color:'#8A6F52', font:{size:10}, precision:0 }, grid:{ color:'#DEC49A' } }
+        },
+        plugins:{ legend:{ labels:{ color:'#8A6F52', font:{size:10.5}, boxWidth:10, padding:10 } } }
+      }
+    });
+
+    const rankEl = document.getElementById('statsPeringkat');
+    if(!data.peringkat.length){
+      rankEl.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada data kehadiran di periode ini.</div>';
+    } else {
+      rankEl.innerHTML = data.peringkat.slice(0,8).map((r,i)=>`
+        <div class="rank-row">
+          <div class="rank-num">${i+1}</div>
+          <div>
+            <div class="rank-name">${escapeHtml(r.nama)}</div>
+            <div class="rank-sub">${r.hadir} hadir · ${r.tepat} tepat waktu · ${r.terlambat} telat${r.izin?` · ${r.izin} izin`:''}</div>
+          </div>
+          <div class="rank-pct" style="margin-left:auto;">${r.persenTepatWaktu===null?'–':r.persenTepatWaktu+'%'}</div>
+        </div>
+      `).join('');
+    }
   }
 
   let izinFilterStatus = 'Menunggu';
