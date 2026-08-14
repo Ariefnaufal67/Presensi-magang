@@ -103,6 +103,16 @@
   textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:'Inter';font-size:13.5px;resize:vertical;min-height:60px;}
   textarea:focus{outline:2px solid var(--lime);outline-offset:1px;}
   #izinFilterTabs button{font-size:11px;padding:8px 4px;}
+
+  .bukti-thumb{cursor:zoom-in;display:inline-block;margin-top:6px;}
+  .bukti-thumb img{max-width:70px;border-radius:6px;border:1px solid var(--line);display:block;transition:opacity .15s;}
+  .bukti-thumb:hover img{opacity:.85;}
+
+  .img-modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,12,10,.88);z-index:999;align-items:center;justify-content:center;padding:24px;}
+  .img-modal-overlay.show{display:flex;}
+  .img-modal-img{max-width:min(90vw,700px);max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .img-modal-close{position:absolute;top:18px;right:22px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;}
+  .img-modal-close:hover{border-color:var(--coral);color:var(--coral);}
   .empty-row td{text-align:center;color:var(--ink-soft);padding:22px;font-size:12.5px;}
 
   /* ---- Kiosk ---- */
@@ -353,6 +363,11 @@
 
 </div>
 
+<div id="imgModalOverlay" class="img-modal-overlay">
+  <button id="imgModalClose" class="img-modal-close" aria-label="Tutup" type="button">&times;</button>
+  <img id="imgModalImg" class="img-modal-img" alt="Lampiran bukti">
+</div>
+
 <script>
 (function(){
   function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -566,8 +581,23 @@
 
   function buktiThumbHtml(buktiFoto){
     if(!buktiFoto) return '';
-    return `<a href="${buktiFoto}" target="_blank" rel="noopener"><img src="${buktiFoto}" alt="Bukti" style="max-width:70px;border-radius:6px;border:1px solid var(--line);display:block;margin-top:6px;"></a>`;
+    return `<div class="bukti-thumb" onclick="openImageModal(this.querySelector('img').src)"><img src="${buktiFoto}" alt="Bukti"></div>`;
   }
+
+  const imgModalOverlay = document.getElementById('imgModalOverlay');
+  const imgModalImg = document.getElementById('imgModalImg');
+  function openImageModal(src){
+    imgModalImg.src = src;
+    imgModalOverlay.classList.add('show');
+  }
+  window.openImageModal = openImageModal;
+  function closeImageModal(){
+    imgModalOverlay.classList.remove('show');
+    imgModalImg.src = '';
+  }
+  document.getElementById('imgModalClose').addEventListener('click', closeImageModal);
+  imgModalOverlay.addEventListener('click', (e)=>{ if(e.target === imgModalOverlay) closeImageModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeImageModal(); });
 
   async function loadIzinRiwayat(pesertaId){
     const el = document.getElementById('izinRiwayatList');
