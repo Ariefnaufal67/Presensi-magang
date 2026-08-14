@@ -14,7 +14,7 @@
     --bg:#FBF1E3; --surface:#F5E4CC; --surface-2:#EFD9B8; --line:#DEC49A;
     --ink:#3A2A1C; --ink-soft:#8A6F52;
     --lime:#C1592E; --lime-dim:#F2D9C1; --ink-on-accent:#FDF6EC;
-    --coral:#C0392B; --coral-dim:#F4D8CE;
+    --coral:#8A3F2C; --coral-dim:#EAD8CD;
     --green:#5C7A34; --green-dim:#E1E7C9;
     --radius:16px; --shadow:0 20px 50px -20px rgba(58,42,28,.35);
   }
@@ -143,8 +143,8 @@
   .result-banner{width:100%;max-width:420px;margin-top:16px;padding:16px;border-radius:14px;display:none;align-items:center;gap:14px;}
   .result-banner.show{display:flex;}
   .result-banner.masuk{background:var(--green-dim);border:1px solid #A9B884;}
-  .result-banner.pulang{background:var(--coral-dim);border:1px solid #DCA99C;}
-  .result-banner.error{background:var(--coral-dim);border:1px solid #DCA99C;}
+  .result-banner.pulang{background:var(--coral-dim);border:1px solid #C9A896;}
+  .result-banner.error{background:var(--coral-dim);border:1px solid #C9A896;}
   .result-icon{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .result-name{font-family:'Outfit';font-weight:700;font-size:15px;}
   .result-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
@@ -694,7 +694,7 @@
         labels,
         datasets: [
           { label:'Tepat waktu', data:data.daily.map(d=>d.tepat), backgroundColor:'#5C7A34', stack:'s' },
-          { label:'Terlambat', data:data.daily.map(d=>d.terlambat), backgroundColor:'#C0392B', stack:'s' },
+          { label:'Terlambat', data:data.daily.map(d=>d.terlambat), backgroundColor:'#8A3F2C', stack:'s' },
           { label:'Izin/Sakit/Cuti', data:data.daily.map(d=>d.izin), backgroundColor:'#C1592E', stack:'s' }
         ]
       },
