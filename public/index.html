@@ -348,14 +348,26 @@
         </div>
 
         <div class="side-card">
-          <h2>Akun Admin</h2>
-          <p class="desc">Ganti username / password login admin.</p>
+          <h2>Akun Saya</h2>
+          <p class="desc">Ganti username / password akun admin yang sedang login.</p>
           <div class="field-pair" style="margin-bottom:10px;">
             <div><label>Username baru</label><input type="text" id="newAdminUser" placeholder="admin"></div>
             <div><label>Password baru</label><input type="password" id="newAdminPass" placeholder="min. 4 karakter"></div>
           </div>
           <button class="btn ghost" id="saveCredentials">Ganti Kredensial</button>
           <div id="credentialMsg"></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Kelola Akun Admin</h2>
+          <p class="desc">Tambahkan admin lain kalau perlu lebih dari satu orang yang bisa buka kiosk ini.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <input type="text" id="newAdminAccUser" placeholder="Username admin baru">
+            <input type="password" id="newAdminAccPass" placeholder="Password (min. 4 karakter)">
+          </div>
+          <button class="btn ghost" id="addAdminAcc" style="margin-bottom:14px;">+ Tambah Admin</button>
+          <div id="addAdminMsg"></div>
+          <div id="adminAccList"></div>
         </div>
 
         <div class="side-card">
@@ -664,6 +676,7 @@
     await refreshRoster();
     await refreshIzinPending();
     await refreshStats();
+    await refreshAdminList();
   }
 
   let statsPeriodDays = 14;
@@ -925,16 +938,72 @@
     const username = document.getElementById('newAdminUser').value.trim();
     const password = document.getElementById('newAdminPass').value;
     const msg = document.getElementById('credentialMsg');
+    if(!currentAdmin){ return; }
     const { ok, data } = await api('/api/credentials', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ oldUsername: currentAdmin.username, username, password })
     });
     if(ok && data.ok){
       document.getElementById('newAdminUser').value='';
       document.getElementById('newAdminPass').value='';
       msg.innerHTML = '<div class="msg-ok">Kredensial berhasil diganti. Gunakan yang baru saat login berikutnya.</div>';
+      currentAdmin = { username };
+      document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
+      await refreshAdminList();
     } else {
       msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal mengganti kredensial.')}</div>`;
+    }
+  });
+
+  // ---------- kelola daftar admin ----------
+  async function refreshAdminList(){
+    const { ok, data } = await api('/api/admins');
+    if(!ok) return;
+    renderAdminList(data.admins || []);
+  }
+  function renderAdminList(admins){
+    const el = document.getElementById('adminAccList');
+    if(admins.length===0){
+      el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada akun admin lain.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    admins.forEach(a=>{
+      const row = document.createElement('div');
+      row.className = 'roster-item';
+      const isSelf = currentAdmin && a.username === currentAdmin.username;
+      row.innerHTML = `<span>${escapeHtml(a.username)}${isSelf ? ' <span class="pill dash">kamu</span>' : ''}</span>`;
+      if(!isSelf){
+        const del = document.createElement('button');
+        del.className='icon-btn'; del.textContent='✕'; del.title='Hapus admin ini';
+        del.addEventListener('click', async ()=>{
+          const { ok, data } = await api('/api/admins?username=' + encodeURIComponent(a.username), { method:'DELETE' });
+          if(ok && data.ok){
+            renderAdminList(data.admins);
+          } else {
+            alert((data && data.message) || 'Gagal menghapus admin.');
+          }
+        });
+        row.appendChild(del);
+      }
+      el.appendChild(row);
+    });
+  }
+  document.getElementById('addAdminAcc').addEventListener('click', async ()=>{
+    const username = document.getElementById('newAdminAccUser').value.trim();
+    const password = document.getElementById('newAdminAccPass').value;
+    const msg = document.getElementById('addAdminMsg');
+    const { ok, data } = await api('/api/admins', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    if(ok && data.ok){
+      document.getElementById('newAdminAccUser').value='';
+      document.getElementById('newAdminAccPass').value='';
+      msg.innerHTML = '<div class="msg-ok">Admin baru berhasil ditambahkan.</div>';
+      renderAdminList(data.admins);
+    } else {
+      msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal menambah admin.')}</div>`;
     }
   });
 

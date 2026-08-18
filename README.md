@@ -19,12 +19,22 @@ versi prototipe sebelumnya.
 ## Fitur Utama
 
 - Login terpisah untuk admin (username & password) dan peserta (NIM/ID).
+- **Multi-admin** — bisa ada lebih dari satu akun admin, masing-masing bisa
+  login sendiri, ganti password sendiri, dan tambah/hapus akun admin lain
+  (minimal harus ada 1 admin tersisa, tidak bisa dihapus semua).
 - Kartu QR pribadi per peserta, dikelola sepenuhnya oleh admin.
 - Kiosk scan otomatis — scan pertama di hari itu = masuk, scan berikutnya = pulang.
 - Jam masuk & toleransi keterlambatan yang bisa diatur admin, dipakai
-  untuk menandai status "Tepat waktu" / "Terlambat" secara otomatis.
+  untuk menandai status "Tepat waktu" / "Terlambat" secara otomatis
+  (dihitung memakai zona waktu Jakarta/WIB, bukan zona waktu server).
 - Tandai pulang manual oleh admin (kalau peserta lupa scan).
 - Riwayat kehadiran per peserta (jam masuk, status, jam pulang, per hari).
+- **Pengajuan izin/sakit/cuti** oleh peserta (dengan lampiran bukti foto
+  opsional), dengan approval/penolakan oleh admin. Kalau izin sudah
+  disetujui tapi peserta ternyata tetap datang dan scan, catatan izin
+  otomatis ditimpa jadi absen masuk asli.
+- **Statistik & leaderboard kehadiran** — ringkasan harian, persentase
+  tepat waktu, dan peringkat per peserta untuk periode 7–60 hari terakhir.
 - **Password admin disimpan ter-hash (bcrypt)**, tidak dalam bentuk teks biasa.
 
 ## Struktur proyek
@@ -33,10 +43,13 @@ versi prototipe sebelumnya.
 public/index.html       halaman aplikasi (login, kartu peserta, kiosk admin)
 api/[...route].js        satu serverless function untuk semua endpoint API
 lib/db.js                 koneksi MongoDB (dengan connection caching)
-lib/store.js              semua query database (roster, settings, absensi)
+lib/store.js              semua query database (roster, settings, admin,
+                           absensi, izin, statistik)
 data/seed.json             data awal — dipakai SEKALI saat database masih kosong
 .env.example               contoh environment variable untuk lokal
 ```
+
+Koleksi MongoDB yang dipakai: `roster`, `settings`, `admins`, `attendance`, `izin`.
 
 ## Setup database (MongoDB Atlas — gratis)
 

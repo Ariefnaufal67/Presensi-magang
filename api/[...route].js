@@ -15,10 +15,16 @@ module.exports = async (req, res) => {
     if (route === 'roster') return await handleRoster(req, res);
     if (route === 'settings') return await handleSettings(req, res);
     if (route === 'credentials' && method === 'POST') return await handleCredentials(req, res);
+    if (route === 'admins') return await handleAdmins(req, res);
     if (route === 'scan' && method === 'POST') return await handleScan(req, res);
     if (route === 'mark-pulang' && method === 'POST') return await handleMarkPulang(req, res);
     if (route === 'today' && method === 'GET') return await handleToday(req, res);
     if (route === 'history' && method === 'GET') return await handleHistory(req, res);
+    if (route === 'izin' && method === 'GET') return await handleIzinList(req, res);
+    if (route === 'izin' && method === 'POST') return await handleIzinAjukan(req, res);
+    if (route === 'izin-approve' && method === 'POST') return await handleIzinApprove(req, res);
+    if (route === 'izin-reject' && method === 'POST') return await handleIzinReject(req, res);
+    if (route === 'stats' && method === 'GET') return await handleStats(req, res);
 
     res.status(404).json({ ok: false, message: 'Endpoint tidak ditemukan: ' + route });
   } catch (e) {
@@ -109,18 +115,64 @@ async function handleSettings(req, res) {
   res.status(405).json({ ok: false, message: 'Method not allowed' });
 }
 
-// ---------- credentials ----------
+// ---------- credentials (ganti username/password akun admin sendiri) ----------
 async function handleCredentials(req, res) {
-  const { username, password } = req.body || {};
-  if (!username || !String(username).trim() || !password || String(password).length < 4) {
+  const { oldUsername, username, password } = req.body || {};
+  if (!oldUsername || !username || !String(username).trim() || !password || String(password).length < 4) {
     res.status(400).json({
       ok: false,
-      message: 'Username wajib diisi & password minimal 4 karakter.'
+      message: 'Data tidak lengkap: username wajib diisi & password minimal 4 karakter.'
     });
     return;
   }
-  await store.updateCredentials(String(username).trim(), String(password));
-  res.status(200).json({ ok: true });
+  const result = await store.updateCredentials(
+    String(oldUsername).trim(),
+    String(username).trim(),
+    String(password)
+  );
+  res.status(result.ok ? 200 : 400).json(result);
+}
+
+// ---------- admins (kelola banyak akun admin) ----------
+async function handleAdmins(req, res) {
+  if (req.method === 'GET') {
+    const admins = await store.getAdmins();
+    res.status(200).json({ admins });
+    return;
+  }
+
+  if (req.method === 'POST') {
+    const { username, password } = req.body || {};
+    if (!username || !String(username).trim() || !password || String(password).length < 4) {
+      res.status(400).json({
+        ok: false,
+        message: 'Username wajib diisi & password minimal 4 karakter.'
+      });
+      return;
+    }
+    const result = await store.addAdmin(String(username).trim(), String(password));
+    if (!result.ok) {
+      res.status(400).json(result);
+      return;
+    }
+    const admins = await store.getAdmins();
+    res.status(200).json({ ok: true, admins });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    const username = (req.q && req.q.username) || (req.body && req.body.username);
+    const result = await store.deleteAdmin(username);
+    if (!result.ok) {
+      res.status(400).json(result);
+      return;
+    }
+    const admins = await store.getAdmins();
+    res.status(200).json({ ok: true, admins });
+    return;
+  }
+
+  res.status(405).json({ ok: false, message: 'Method not allowed' });
 }
 
 // ---------- scan ----------
@@ -153,4 +205,41 @@ async function handleHistory(req, res) {
   }
   const history = await store.getHistory(pesertaId);
   res.status(200).json({ history });
+}
+
+// ---------- izin ----------
+async function handleIzinList(req, res) {
+  const pesertaId = req.q && req.q.pesertaId;
+  const status = req.q && req.q.status;
+  const izin = await store.getIzinList({ pesertaId, status });
+  res.status(200).json({ izin });
+}
+
+async function handleIzinAjukan(req, res) {
+  const { pesertaId, tanggal, jenis, alasan, buktiFoto } = req.body || {};
+  const result = await store.ajukanIzin({ pesertaId, tanggal, jenis, alasan, buktiFoto });
+  res.status(result.ok ? 200 : 400).json(result);
+}
+
+async function handleIzinApprove(req, res) {
+  const { izinId } = req.body || {};
+  const result = await store.approveIzin(izinId);
+  res.status(result.ok ? 200 : result.message && result.message.includes('tidak ditemukan') ? 404 : 400).json(
+    result
+  );
+}
+
+async function handleIzinReject(req, res) {
+  const { izinId } = req.body || {};
+  const result = await store.rejectIzin(izinId);
+  res.status(result.ok ? 200 : result.message && result.message.includes('tidak ditemukan') ? 404 : 400).json(
+    result
+  );
+}
+
+// ---------- statistik ----------
+async function handleStats(req, res) {
+  const days = (req.q && req.q.days) || '14';
+  const stats = await store.getStats(days);
+  res.status(200).json(stats);
 }
