@@ -466,7 +466,7 @@
   });
 
   // ---------- admin login ----------
-  document.getElementById('submitAdminLogin').addEventListener('click', async ()=>{
+  async function doAdminLogin(){
     const username = document.getElementById('loginUser').value.trim();
     const password = document.getElementById('loginPass').value;
     const err = document.getElementById('adminLoginError');
@@ -486,10 +486,16 @@
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
     }
+  }
+  document.getElementById('submitAdminLogin').addEventListener('click', doAdminLogin);
+  ['loginUser','loginPass'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); doAdminLogin(); }
+    });
   });
 
   // ---------- peserta login ----------
-  document.getElementById('submitPesertaLogin').addEventListener('click', async ()=>{
+  async function doPesertaLogin(){
     const nim = document.getElementById('loginNim').value.trim();
     const err = document.getElementById('pesertaLoginError');
     err.innerHTML = '';
@@ -515,6 +521,10 @@
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
     }
+  }
+  document.getElementById('submitPesertaLogin').addEventListener('click', doPesertaLogin);
+  document.getElementById('loginNim').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); doPesertaLogin(); }
   });
 
   // ---------- badge (peserta) ----------
@@ -1030,11 +1040,15 @@
     if(parts[0] !== 'KARTU' || !parts[1]){ processResult(null, 'Kartu tidak dikenali', null); return; }
     processId(parts[1]);
   }
-  document.getElementById('submitManual').addEventListener('click', ()=>{
+  function doSubmitManual(){
     const val = document.getElementById('manualId').value.trim().toUpperCase();
     if(!val) return;
     processId(val);
     document.getElementById('manualId').value='';
+  }
+  document.getElementById('submitManual').addEventListener('click', doSubmitManual);
+  document.getElementById('manualId').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); doSubmitManual(); }
   });
 
   async function processId(id){
