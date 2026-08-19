@@ -386,8 +386,8 @@
           <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
           <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
           <table>
-            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th></tr></thead>
-            <tbody id="logBody"><tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr></tbody>
+            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Metode</th></tr></thead>
+            <tbody id="logBody"><tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr></tbody>
           </table>
         </div>
 
@@ -843,17 +843,22 @@
   function renderLog(log){
     const body = document.getElementById('logBody');
     if(log.length===0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr>';
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
         const rows = [];
+        const metodePill = (m)=> m === 'qr'
+          ? '<span class="pill tepat">QR</span>'
+          : m === 'manual'
+            ? '<span class="pill dash">Manual</span>'
+            : '<span class="pill dash">—</span>';
         if(r.sumber === 'izin'){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td><td><span class="pill dash">—</span></td></tr>`);
           return rows.join('');
         }
-        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td></tr>`);
+        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td>${metodePill(r.metodeMasuk)}</td></tr>`);
         if(r.jamPulang){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td>${r.pulangManual ? '<span class="pill dash">—</span>' : metodePill(r.metodePulang)}</td></tr>`);
         }
         return rows.join('');
       }).join('');
@@ -1038,12 +1043,12 @@
   function handleScan(text){
     const parts = text.split('|');
     if(parts[0] !== 'KARTU' || !parts[1]){ processResult(null, 'Kartu tidak dikenali', null); return; }
-    processId(parts[1]);
+    processId(parts[1], 'qr');
   }
   function doSubmitManual(){
     const val = document.getElementById('manualId').value.trim().toUpperCase();
     if(!val) return;
-    processId(val);
+    processId(val, 'manual');
     document.getElementById('manualId').value='';
   }
   document.getElementById('submitManual').addEventListener('click', doSubmitManual);
@@ -1051,10 +1056,10 @@
     if(e.key === 'Enter'){ e.preventDefault(); doSubmitManual(); }
   });
 
-  async function processId(id){
+  async function processId(id, metode){
     const { ok, data } = await api('/api/scan', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ id, metode })
     });
     if(!ok){
       processResult(null, (data && data.message) || 'Terjadi kesalahan.', null);

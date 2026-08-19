@@ -177,8 +177,8 @@ async function handleAdmins(req, res) {
 
 // ---------- scan ----------
 async function handleScan(req, res) {
-  const { id } = req.body || {};
-  const result = await store.processScan(id);
+  const { id, metode } = req.body || {};
+  const result = await store.processScan(id, metode);
   const statusCode = 'peserta' in result ? 200 : 404;
   res.status(statusCode).json(result);
 }
