@@ -75,12 +75,12 @@ async function handleRoster(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { nama, nim } = req.body || {};
+    const { nama, nim, asalKampus } = req.body || {};
     if (!nama || !String(nama).trim()) {
       res.status(400).json({ ok: false, message: 'Nama wajib diisi.' });
       return;
     }
-    const item = await store.addPeserta(nama, nim);
+    const item = await store.addPeserta(nama, nim, asalKampus);
     const roster = await store.getRoster();
     res.status(200).json({ ok: true, peserta: item, roster });
     return;

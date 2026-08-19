@@ -398,6 +398,7 @@
             <input type="text" id="newNama" placeholder="Nama">
             <input type="text" id="newNim" placeholder="NIM / ID">
           </div>
+          <input type="text" id="newAsalKampus" placeholder="Asal Sekolah / Kampus" style="margin-bottom:10px;">
           <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
           <div id="rosterList"></div>
         </div>
@@ -872,7 +873,8 @@
 
       const left = document.createElement('div');
       left.className = 'roster-left';
-      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id} · ${escapeHtml(p.nim)}</span>`;
+      const asalLine = p.asalKampus && p.asalKampus !== '-' ? `<span class="nim">${escapeHtml(p.asalKampus)}</span>` : '';
+      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id} · ${escapeHtml(p.nim)}</span>${asalLine}`;
       row.appendChild(left);
 
       const actions = document.createElement('div');
@@ -911,13 +913,14 @@
   document.getElementById('addPeserta').addEventListener('click', async ()=>{
     const nama = document.getElementById('newNama').value.trim();
     const nim = document.getElementById('newNim').value.trim();
+    const asalKampus = document.getElementById('newAsalKampus').value.trim();
     if(!nama) return;
     const { ok, data } = await api('/api/roster', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ nama, nim })
+      body: JSON.stringify({ nama, nim, asalKampus })
     });
     if(ok && data.ok){
-      document.getElementById('newNama').value=''; document.getElementById('newNim').value='';
+      document.getElementById('newNama').value=''; document.getElementById('newNim').value=''; document.getElementById('newAsalKampus').value='';
       renderRoster(data.roster);
     }
   });

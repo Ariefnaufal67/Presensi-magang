@@ -1,7 +1,7 @@
 {
   "roster": [
-    { "id": "PST-1001", "nama": "Ayu Lestari", "nim": "A11.2022.001" },
-    { "id": "PST-1002", "nama": "Bagas Pratama", "nim": "A11.2022.014" }
+    { "id": "PST-1001", "nama": "Ayu Lestari", "nim": "A11.2022.001", "asalKampus": "Universitas Dian Nuswantoro" },
+    { "id": "PST-1002", "nama": "Bagas Pratama", "nim": "A11.2022.014", "asalKampus": "Universitas Dian Nuswantoro" }
   ],
   "settings": {
     "jamMasuk": "08:00",
