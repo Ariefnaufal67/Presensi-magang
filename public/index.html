@@ -196,7 +196,7 @@
       <div class="login-hero">
         <div class="eyebrow">Presensi Magang · QR</div>
         <h1>Masuk untuk melanjutkan</h1>
-        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM untuk melihat kartu QR & riwayat kehadirannya.</p>
+        <p>Admin cukup menampilkan kode QR di layar kiosk. Peserta login dengan NIM lalu memindai kode itu lewat HP masing-masing untuk presensi — admin tidak perlu memindai apa pun dari peserta.</p>
       </div>
       <div class="segmented">
         <button data-mode="peserta" class="active">Peserta Magang</button>
@@ -228,7 +228,7 @@
     <div class="badge-wrap">
       <div class="greet-card">
         <h2 id="badgeGreeting">Halo</h2>
-        <p>Ini kartu QR pribadimu — tunjukkan ke kamera di layar Kiosk Admin saat absen masuk / pulang.</p>
+        <p>Gunakan menu "Presensi Mandiri" di bawah untuk memindai QR di layar kiosk dan absen masuk / pulang lewat lokasi HP-mu.</p>
       </div>
 
       <div class="idcard" id="idcard">
@@ -305,18 +305,14 @@
   <div class="view" id="view-kiosk">
     <div class="kiosk-grid">
       <div class="scan-stage">
-        <div class="scan-frame">
-          <div id="reader"></div>
-          <div class="flash-overlay" id="flashOverlay"></div>
+        <div class="side-card" style="text-align:center;margin-bottom:16px;">
+          <h2>QR Presensi Mandiri</h2>
+          <p class="desc">Tampilkan kode ini di layar kiosk. Peserta login NIM lalu memindainya lewat kamera HP masing-masing — admin tidak perlu meminta atau memindai QR peserta.</p>
+          <div class="idcard-qr" id="kioskQr" style="margin:0 auto 12px;"></div>
+          <button class="btn ghost" id="regenToken">🔄 Buat ulang kode</button>
+          <p class="login-hint">Buat ulang kalau kode lama diduga sudah di-screenshot dan disebar ke orang yang tidak sedang di lokasi.</p>
         </div>
-        <div class="scan-caption">
-          <h2 id="scanCaption">Arahkan kartu QR ke kamera</h2>
-          <p id="scanSub">Mode otomatis: masuk pertama kali, pulang di scan berikutnya.</p>
-        </div>
-        <div class="manual-row">
-          <input type="text" id="manualId" placeholder="atau ketik ID kartu, mis. PST-2931" class="mono">
-          <button class="btn" style="width:auto;padding:10px 16px;" id="submitManual">Kirim</button>
-        </div>
+
         <div class="result-banner" id="resultBanner">
           <div class="result-icon" id="resultIcon"></div>
           <div>
@@ -324,6 +320,22 @@
             <div class="result-sub" id="resultSub">—</div>
           </div>
         </div>
+
+        <details id="manualModeDetails" style="margin-top:16px;">
+          <summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);">Mode manual — kalau ada peserta tanpa HP/kuota data</summary>
+          <div class="scan-frame" style="margin-top:12px;">
+            <div id="reader"></div>
+            <div class="flash-overlay" id="flashOverlay"></div>
+          </div>
+          <div class="scan-caption">
+            <h2 id="scanCaption">Arahkan kartu QR ke kamera</h2>
+            <p id="scanSub">Mode otomatis: masuk pertama kali, pulang di scan berikutnya.</p>
+          </div>
+          <div class="manual-row">
+            <input type="text" id="manualId" placeholder="atau ketik ID kartu, mis. PST-2931" class="mono">
+            <button class="btn" style="width:auto;padding:10px 16px;" id="submitManual">Kirim</button>
+          </div>
+        </details>
       </div>
 
       <div>
@@ -373,14 +385,6 @@
           <input type="number" id="lokasiRadius" value="50" min="10" style="margin-bottom:10px;">
           <button class="btn ghost" id="saveLokasi">Simpan Lokasi</button>
           <div id="lokasiMsg"></div>
-        </div>
-
-        <div class="side-card">
-          <h2>QR Presensi Mandiri</h2>
-          <p class="desc">Tampilkan kode ini di layar kiosk. Peserta memindainya lewat kamera HP masing-masing (setelah login NIM) untuk presensi mandiri dari lokasi magang.</p>
-          <div class="idcard-qr" id="kioskQr" style="margin:0 auto 12px;"></div>
-          <button class="btn ghost" id="regenToken">🔄 Buat ulang kode</button>
-          <p class="login-hint">Buat ulang kalau kode lama diduga sudah di-screenshot dan disebar ke orang yang tidak sedang di lokasi.</p>
         </div>
 
         <div class="side-card">
@@ -520,7 +524,6 @@
       document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
       viewKiosk.classList.add('active');
       await renderKiosk();
-      startScanner();
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
     }
@@ -1099,6 +1102,10 @@
     } else {
       alert((data && data.message) || 'Gagal membuat ulang kode.');
     }
+  });
+
+  document.getElementById('manualModeDetails').addEventListener('toggle', (e)=>{
+    if(e.target.open){ startScanner(); } else { stopScanner(); }
   });
 
   document.getElementById('saveCredentials').addEventListener('click', async ()=>{
