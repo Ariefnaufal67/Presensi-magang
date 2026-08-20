@@ -316,6 +316,15 @@
           <p class="login-hint">Buat ulang kalau kode lama diduga sudah di-screenshot dan disebar ke orang yang tidak sedang di lokasi.</p>
         </div>
 
+        <div class="side-card">
+          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
+          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <table>
+            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th></tr></thead>
+            <tbody id="logBody"><tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr></tbody>
+          </table>
+        </div>
+
         <div class="result-banner" id="resultBanner">
           <div class="result-icon" id="resultIcon"></div>
           <div>
@@ -423,15 +432,6 @@
             <button data-status="Semua">Semua</button>
           </div>
           <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
-        </div>
-
-        <div class="side-card">
-          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
-          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
-          <table>
-            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th></tr></thead>
-            <tbody id="logBody"><tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr></tbody>
-          </table>
         </div>
 
         <div class="side-card">
