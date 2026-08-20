@@ -231,22 +231,7 @@
         <p>Gunakan menu "Presensi Mandiri" di bawah untuk memindai QR di layar kiosk dan absen masuk / pulang lewat lokasi HP-mu.</p>
       </div>
 
-      <div class="idcard" id="idcard">
-        <div class="idcard-top">
-          <div class="avatar" id="avatarInit">–</div>
-          <div>
-            <div class="idcard-name" id="idcardName">—</div>
-            <div class="idcard-role">Peserta Magang</div>
-          </div>
-        </div>
-        <div class="idcard-qr" id="idcardQr"></div>
-        <div class="idcard-foot">
-          <div class="idcard-id mono" id="idcardId">—</div>
-          <div class="idcard-tag">AKTIF</div>
-        </div>
-      </div>
-
-      <div class="side-card">
+      <div class="side-card" style="text-align:center;">
         <h2>Presensi Mandiri (Lokasi)</h2>
         <p class="desc">Pindai kode QR yang tertampil di layar kiosk. Presensi hanya akan tercatat kalau lokasi HP-mu berada dalam radius lokasi magang.</p>
         <div id="mandiriIdle">
@@ -259,6 +244,24 @@
         </div>
         <div id="mandiriResult"></div>
       </div>
+
+      <details style="margin-bottom:16px;">
+        <summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);padding:4px 0;">Kartu ID saya (buat mode manual admin bila diperlukan)</summary>
+        <div class="idcard" id="idcard" style="margin-top:12px;">
+          <div class="idcard-top">
+            <div class="avatar" id="avatarInit">–</div>
+            <div>
+              <div class="idcard-name" id="idcardName">—</div>
+              <div class="idcard-role">Peserta Magang</div>
+            </div>
+          </div>
+          <div class="idcard-qr" id="idcardQr"></div>
+          <div class="idcard-foot">
+            <div class="idcard-id mono" id="idcardId">—</div>
+            <div class="idcard-tag">AKTIF</div>
+          </div>
+        </div>
+      </details>
 
       <div class="side-card">
         <h2>Ajukan Izin</h2>
