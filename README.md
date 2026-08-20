@@ -36,6 +36,12 @@ versi prototipe sebelumnya.
 - **Statistik & leaderboard kehadiran** — ringkasan harian, persentase
   tepat waktu, dan peringkat per peserta untuk periode 7–60 hari terakhir.
 - **Password admin disimpan ter-hash (bcrypt)**, tidak dalam bentuk teks biasa.
+- **Presensi mandiri berbasis lokasi** — selain discan admin di kiosk, peserta
+  bisa login sendiri lewat HP, memindai kode QR yang tertampil di layar
+  kiosk (menu admin "QR Presensi Mandiri"), lalu presensi hanya tercatat
+  kalau HP-nya berada dalam radius yang ditentukan (default 50m) dari
+  koordinat lokasi magang yang diatur admin, dan sinyal GPS-nya cukup
+  akurat (ditolak kalau akurasi lebih kasar dari ~100m).
 
 ## Struktur proyek
 
@@ -128,3 +134,8 @@ vercel dev
 - Index unik `{pesertaId, tanggal}` di koleksi `attendance` mencegah satu
   peserta punya lebih dari satu entri absen di hari yang sama, meski ada
   banyak scan bersamaan.
+- **Batas presensi mandiri**: browser tidak punya cara resmi mendeteksi
+  aplikasi fake-GPS/mock-location — validasi jarak + akurasi GPS di sini
+  mempersulit, bukan menjamin 100% mustahil, dipalsukan. Kombinasikan
+  dengan kode QR kiosk (harus lihat layar kiosk langsung) dan "Buat ulang
+  kode" berkala kalau curiga ada kode yang bocor.
