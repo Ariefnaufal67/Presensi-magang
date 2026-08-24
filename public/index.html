@@ -149,6 +149,14 @@
   .result-name{font-family:'Outfit';font-weight:700;font-size:15px;}
   .result-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
 
+  .ring-wrap{position:relative;width:220px;height:220px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .ring-wrap svg{position:absolute;top:0;left:0;width:220px;height:220px;transform:rotate(-90deg);}
+  .ring-track{fill:none;stroke:rgba(255,255,255,.15);stroke-width:4;}
+  .ring-progress{fill:none;stroke:var(--lime);stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset 1s linear;}
+  #adminQr{width:172px;height:172px;background:#fff;border-radius:12px;padding:8px;display:flex;align-items:center;justify-content:center;}
+  #adminQr img, #adminQr canvas{border-radius:6px;}
+  .countdown-badge{font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--lime);background:rgba(255,255,255,.08);padding:4px 10px;border-radius:20px;margin-top:2px;}
+
   .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
   .stat-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;}
   .stat-num{font-family:'Outfit';font-size:24px;font-weight:700;}
@@ -196,7 +204,7 @@
       <div class="login-hero">
         <div class="eyebrow">Presensi Magang · QR</div>
         <h1>Masuk untuk melanjutkan</h1>
-        <p>Admin cukup menampilkan kode QR di layar kiosk. Peserta login dengan NIM lalu memindai kode itu lewat HP masing-masing untuk presensi — admin tidak perlu memindai apa pun dari peserta.</p>
+        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM untuk melihat kartu QR & riwayat kehadirannya.</p>
       </div>
       <div class="segmented">
         <button data-mode="peserta" class="active">Peserta Magang</button>
@@ -228,40 +236,29 @@
     <div class="badge-wrap">
       <div class="greet-card">
         <h2 id="badgeGreeting">Halo</h2>
-        <p>Gunakan menu "Presensi Mandiri" di bawah untuk memindai QR di layar kiosk dan absen masuk / pulang lewat lokasi HP-mu.</p>
+        <p>Scan QR yang tampil di layar Kiosk Admin untuk absen masuk / pulang. Lokasi GPS-mu akan diperiksa untuk memastikan kamu memang berada di area kantor.</p>
       </div>
 
-      <div class="side-card" style="text-align:center;">
-        <h2>Presensi Mandiri (Lokasi)</h2>
-        <p class="desc">Pindai kode QR yang tertampil di layar kiosk. Presensi hanya akan tercatat kalau lokasi HP-mu berada dalam radius lokasi magang.</p>
-        <div id="mandiriIdle">
-          <button class="btn" id="startMandiriScan">📷 Mulai Pindai QR Kiosk</button>
+      <div class="side-card">
+        <h2>Absen Sekarang</h2>
+        <p class="desc" id="absenSub">Arahkan kamera ke QR di layar admin.</p>
+        <div class="scan-frame" style="max-width:320px;margin:0 auto 12px;">
+          <div id="pesertaReader"></div>
+          <div class="flash-overlay" id="pesertaFlash"></div>
         </div>
-        <div id="mandiriScanArea" style="display:none;">
-          <div class="scan-frame" style="margin-bottom:10px;"><div id="readerPeserta"></div></div>
-          <p id="mandiriStatus" style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">Arahkan kamera ke kode QR di layar kiosk…</p>
-          <button class="btn ghost" id="cancelMandiriScan">Batalkan</button>
+        <div id="locStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;text-align:center;">Meminta izin lokasi…</div>
+        <div class="manual-row" style="margin-top:0;">
+          <input type="text" id="pesertaManualToken" placeholder="atau ketik kode dari layar admin" class="mono">
+          <button class="btn" style="width:auto;padding:10px 16px;" id="pesertaSubmitManual">Kirim</button>
         </div>
-        <div id="mandiriResult"></div>
+        <div class="result-banner" id="pesertaResultBanner">
+          <div class="result-icon" id="pesertaResultIcon"></div>
+          <div>
+            <div class="result-name" id="pesertaResultName">—</div>
+            <div class="result-sub" id="pesertaResultSub">—</div>
+          </div>
+        </div>
       </div>
-
-      <details style="margin-bottom:16px;">
-        <summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);padding:4px 0;">Kartu ID saya (buat mode manual admin bila diperlukan)</summary>
-        <div class="idcard" id="idcard" style="margin-top:12px;">
-          <div class="idcard-top">
-            <div class="avatar" id="avatarInit">–</div>
-            <div>
-              <div class="idcard-name" id="idcardName">—</div>
-              <div class="idcard-role">Peserta Magang</div>
-            </div>
-          </div>
-          <div class="idcard-qr" id="idcardQr"></div>
-          <div class="idcard-foot">
-            <div class="idcard-id mono" id="idcardId">—</div>
-            <div class="idcard-tag">AKTIF</div>
-          </div>
-        </div>
-      </details>
 
       <div class="side-card">
         <h2>Ajukan Izin</h2>
@@ -308,23 +305,18 @@
   <div class="view" id="view-kiosk">
     <div class="kiosk-grid">
       <div class="scan-stage">
-        <div class="side-card" style="text-align:center;margin-bottom:16px;">
-          <h2>QR Presensi Mandiri</h2>
-          <p class="desc">Tampilkan kode ini di layar kiosk. Peserta login NIM lalu memindainya lewat kamera HP masing-masing — admin tidak perlu meminta atau memindai QR peserta.</p>
-          <div class="idcard-qr" id="kioskQr" style="margin:0 auto 12px;"></div>
-          <button class="btn ghost" id="regenToken">🔄 Buat ulang kode</button>
-          <p class="login-hint">Buat ulang kalau kode lama diduga sudah di-screenshot dan disebar ke orang yang tidak sedang di lokasi.</p>
+        <div class="ring-wrap">
+          <svg viewBox="0 0 220 220">
+            <circle class="ring-track" cx="110" cy="110" r="103"></circle>
+            <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="103"></circle>
+          </svg>
+          <div id="adminQr"></div>
         </div>
-
-        <div class="side-card">
-          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
-          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
-          <table>
-            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th></tr></thead>
-            <tbody id="logBody"><tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr></tbody>
-          </table>
+        <div class="countdown-badge" id="countdownBadge">refresh dalam 20s</div>
+        <div class="scan-caption">
+          <h2>Minta peserta scan QR ini</h2>
+          <p>Kode berganti otomatis tiap ~20 detik. Peserta login pakai NIM, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
         </div>
-
         <div class="result-banner" id="resultBanner">
           <div class="result-icon" id="resultIcon"></div>
           <div>
@@ -332,22 +324,6 @@
             <div class="result-sub" id="resultSub">—</div>
           </div>
         </div>
-
-        <details id="manualModeDetails" style="margin-top:16px;">
-          <summary style="cursor:pointer;font-size:13px;color:var(--ink-soft);">Mode manual — kalau ada peserta tanpa HP/kuota data</summary>
-          <div class="scan-frame" style="margin-top:12px;">
-            <div id="reader"></div>
-            <div class="flash-overlay" id="flashOverlay"></div>
-          </div>
-          <div class="scan-caption">
-            <h2 id="scanCaption">Arahkan kartu QR ke kamera</h2>
-            <p id="scanSub">Mode otomatis: masuk pertama kali, pulang di scan berikutnya.</p>
-          </div>
-          <div class="manual-row">
-            <input type="text" id="manualId" placeholder="atau ketik ID kartu, mis. PST-2931" class="mono">
-            <button class="btn" style="width:auto;padding:10px 16px;" id="submitManual">Kirim</button>
-          </div>
-        </details>
       </div>
 
       <div>
@@ -382,21 +358,13 @@
             <div><label>Batas jam masuk</label><input type="time" id="jamMasuk" value="08:00"></div>
             <div><label>Toleransi (menit)</label><input type="number" id="toleransi" value="15" min="0"></div>
           </div>
-          <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
-        </div>
-
-        <div class="side-card">
-          <h2>Lokasi & Radius Presensi Mandiri</h2>
-          <p class="desc">Peserta yang presensi lewat HP sendiri (bukan discan admin) wajib berada dalam radius ini dari titik lokasi magang. Berdiri persis di lokasi magang lalu tekan tombol di bawah supaya koordinatnya akurat.</p>
-          <button class="btn ghost" id="useMyLocation" style="margin-bottom:10px;">📍 Gunakan lokasi saya sekarang</button>
+          <p class="desc" style="margin-top:16px;">Lokasi kantor untuk verifikasi GPS (geofencing) — peserta harus berada dalam radius ini supaya absen bisa tercatat.</p>
           <div class="field-pair" style="margin-bottom:10px;">
-            <div><label>Latitude</label><input type="text" id="lokasiLat" placeholder="mis. -6.970290" class="mono"></div>
-            <div><label>Longitude</label><input type="text" id="lokasiLng" placeholder="mis. 110.424578" class="mono"></div>
+            <div><label>Latitude</label><input type="text" id="officeLat" placeholder="-6.970290"></div>
+            <div><label>Longitude</label><input type="text" id="officeLng" placeholder="110.424578"></div>
           </div>
-          <label>Radius (meter)</label>
-          <input type="number" id="lokasiRadius" value="50" min="10" style="margin-bottom:10px;">
-          <button class="btn ghost" id="saveLokasi">Simpan Lokasi</button>
-          <div id="lokasiMsg"></div>
+          <div style="margin-bottom:10px;"><label>Radius (meter)</label><input type="number" id="officeRadius" value="50" min="5"></div>
+          <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
         </div>
 
         <div class="side-card">
@@ -432,6 +400,15 @@
             <button data-status="Semua">Semua</button>
           </div>
           <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
+        </div>
+
+        <div class="side-card">
+          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
+          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <table>
+            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>
+            <tbody id="logBody"><tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr></tbody>
+          </table>
         </div>
 
         <div class="side-card">
@@ -473,8 +450,8 @@
 
   let currentPeserta = null;
   let currentAdmin = null;
-  let scanner = null;
-  let scannerPeserta = null;
+  let adminQrPollTimer = null;
+  let adminQrLastToken = null;
 
   // ---------- nav ----------
   const viewLogin = document.getElementById('view-login');
@@ -484,8 +461,8 @@
 
   function hideAll(){
     [viewLogin, viewBadge, viewKiosk].forEach(v=>v.classList.remove('active'));
-    stopScanner();
-    stopScannerPeserta();
+    stopAdminQrPolling();
+    stopPesertaScanner();
   }
   function goLogin(){
     hideAll();
@@ -527,6 +504,7 @@
       document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
       viewKiosk.classList.add('active');
       await renderKiosk();
+      startAdminQrPolling();
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
     }
@@ -547,8 +525,8 @@
       whoRow.style.display='flex';
       document.getElementById('whoami').textContent = currentPeserta.nama;
       document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
-      renderCard(currentPeserta);
       viewBadge.classList.add('active');
+      initPesertaAbsen();
       loadHistory(currentPeserta.id);
       loadIzinRiwayat(currentPeserta.id);
       const today = new Date();
@@ -561,84 +539,109 @@
     }
   });
 
-  // ---------- badge (peserta) ----------
-  function renderCard(p){
-    document.getElementById('avatarInit').textContent = initials(p.nama);
-    document.getElementById('idcardName').textContent = p.nama;
-    document.getElementById('idcardId').textContent = p.id + ' · ' + p.nim;
-    const qrBox = document.getElementById('idcardQr');
-    qrBox.innerHTML = '';
-    new QRCode(qrBox, { text: 'KARTU|'+p.id, width:150, height:150, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  // ---------- absen peserta (scan QR admin + verifikasi lokasi) ----------
+  let pesertaGeo = null; // {lat, lng, accuracy}
+  let pesertaScanner = null;
+  let pesertaBusy = false;
+
+  function setLocStatus(text, isError){
+    const el = document.getElementById('locStatus');
+    el.textContent = text;
+    el.style.color = isError ? 'var(--coral)' : 'var(--ink-soft)';
   }
 
-  // ---------- presensi mandiri (peserta, dengan lokasi) ----------
-  function stopScannerPeserta(){
-    if(scannerPeserta){ scannerPeserta.stop().then(()=>scannerPeserta.clear()).catch(()=>{}); scannerPeserta=null; }
-    document.getElementById('mandiriIdle').style.display='';
-    document.getElementById('mandiriScanArea').style.display='none';
-  }
-
-  function setMandiriResult(ok, message){
-    const el = document.getElementById('mandiriResult');
-    el.innerHTML = `<div class="${ok ? 'msg-ok' : 'msg-err'}">${escapeHtml(message)}</div>`;
-  }
-
-  document.getElementById('startMandiriScan').addEventListener('click', async ()=>{
-    document.getElementById('mandiriResult').innerHTML = '';
-    document.getElementById('mandiriIdle').style.display='none';
-    document.getElementById('mandiriScanArea').style.display='';
-    const status = document.getElementById('mandiriStatus');
-    status.textContent = 'Arahkan kamera ke kode QR di layar kiosk…';
-    try{
-      scannerPeserta = new Html5Qrcode("readerPeserta");
-      const cams = await Html5Qrcode.getCameras();
-      if(!cams || cams.length===0){
-        status.textContent = 'Kamera tidak tersedia di perangkat ini.';
-        return;
-      }
-      await scannerPeserta.start({facingMode:"environment"}, {fps:10, qrbox:220}, (text)=>handleMandiriScan(text), ()=>{});
-    }catch(e){
-      status.textContent = 'Akses kamera ditolak. Izinkan kamera lalu coba lagi.';
-    }
-  });
-
-  document.getElementById('cancelMandiriScan').addEventListener('click', ()=>{
-    stopScannerPeserta();
-  });
-
-  async function handleMandiriScan(text){
-    const parts = text.split('|');
-    if(parts[0] !== 'PRESENSI-MANDIRI' || !parts[1]){ return; } // abaikan QR lain, termasuk kartu peserta
-    const token = parts[1];
-    stopScannerPeserta();
-    const status = document.getElementById('mandiriStatus');
-
+  function requestGeoLocation(){
     if(!navigator.geolocation){
-      setMandiriResult(false, 'Perangkat/browser ini tidak mendukung GPS, presensi mandiri tidak bisa dipakai.');
+      setLocStatus('Browser ini tidak mendukung lokasi GPS. Gunakan browser lain.', true);
       return;
     }
-    setMandiriResult(true, 'Mengambil lokasi GPS…');
-    navigator.geolocation.getCurrentPosition(async (pos)=>{
-      setMandiriResult(true, 'Memvalidasi lokasi…');
-      const { ok, data } = await api('/api/scan-mandiri', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          pesertaId: currentPeserta.id,
-          token,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy
-        })
-      });
-      if(ok && data.ok){
-        setMandiriResult(true, data.message);
-        loadHistory(currentPeserta.id);
-      } else {
-        setMandiriResult(false, (data && data.message) || 'Presensi mandiri gagal.');
+    setLocStatus('Meminta izin lokasi…');
+    navigator.geolocation.getCurrentPosition(
+      (pos)=>{
+        pesertaGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        setLocStatus(`Lokasi terdeteksi (akurasi ±${Math.round(pos.coords.accuracy)}m).`);
+      },
+      (err)=>{
+        pesertaGeo = null;
+        setLocStatus('Gagal mengambil lokasi — izinkan akses lokasi di browser lalu tekan tombol di bawah untuk coba lagi.', true);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  async function initPesertaAbsen(){
+    pesertaGeo = null;
+    requestGeoLocation();
+    await startPesertaScanner();
+  }
+
+  async function startPesertaScanner(){
+    try{
+      pesertaScanner = new Html5Qrcode("pesertaReader");
+      const cams = await Html5Qrcode.getCameras();
+      if(!cams || cams.length===0){
+        document.getElementById('absenSub').textContent = 'Kamera tidak tersedia — pakai input kode manual di bawah.';
+        return;
       }
-    }, (err)=>{
-      setMandiriResult(false, 'Gagal mengambil lokasi: ' + (err.message || 'izin lokasi ditolak') + '. Aktifkan izin lokasi lalu coba pindai lagi.');
-    }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+      await pesertaScanner.start({facingMode:"environment"}, {fps:10, qrbox:220}, (text)=>handlePesertaScan(text), ()=>{});
+    }catch(e){
+      document.getElementById('absenSub').textContent = 'Akses kamera ditolak — pakai input kode manual di bawah.';
+    }
+  }
+  function stopPesertaScanner(){
+    if(pesertaScanner){ pesertaScanner.stop().then(()=>pesertaScanner.clear()).catch(()=>{}); pesertaScanner=null; }
+  }
+  function handlePesertaScan(text){
+    const parts = text.split('|');
+    if(parts[0] !== 'SESI' || !parts[1]){ return; }
+    submitAbsen(parts[1]);
+  }
+  document.getElementById('pesertaSubmitManual').addEventListener('click', ()=>{
+    const val = document.getElementById('pesertaManualToken').value.trim().toUpperCase();
+    if(!val) return;
+    submitAbsen(val);
+  });
+  document.getElementById('pesertaManualToken').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('pesertaSubmitManual').click(); }
+  });
+
+  async function submitAbsen(token){
+    if(pesertaBusy) return;
+    if(!currentPeserta){ return; }
+    if(!pesertaGeo){
+      showPesertaResult(null, 'Lokasi belum terdeteksi. Tunggu sebentar atau izinkan akses lokasi, lalu coba lagi.', null);
+      requestGeoLocation();
+      return;
+    }
+    pesertaBusy = true;
+    const flash = document.getElementById('pesertaFlash');
+    flash.classList.add('on');
+    setTimeout(()=>flash.classList.remove('on'), 200);
+
+    const { ok, data } = await api('/api/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id: currentPeserta.id, token, lat: pesertaGeo.lat, lng: pesertaGeo.lng, accuracy: pesertaGeo.accuracy })
+    });
+    document.getElementById('pesertaManualToken').value='';
+    if(ok && data.ok){
+      showPesertaResult(data.peserta, data.message, data.jenis);
+      loadHistory(currentPeserta.id);
+    } else {
+      showPesertaResult(data.peserta || null, data.message || 'Absen gagal, coba lagi.', null);
+    }
+    pesertaBusy = false;
+  }
+
+  function showPesertaResult(p, msg, jenis){
+    const banner = document.getElementById('pesertaResultBanner');
+    banner.classList.remove('masuk','pulang','error');
+    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : jenis==='Pulang' ? 'pulang' : 'error');
+    document.getElementById('pesertaResultName').textContent = jenis ? 'Berhasil' : 'Gagal';
+    document.getElementById('pesertaResultSub').textContent = msg;
+    document.getElementById('pesertaResultIcon').innerHTML = jenis
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+    setTimeout(()=>banner.classList.remove('show'), 6000);
   }
 
   async function loadHistory(pesertaId){
@@ -781,23 +784,14 @@
   }
 
   // ---------- kiosk (admin) ----------
-  function renderKioskQr(token){
-    const box = document.getElementById('kioskQr');
-    box.innerHTML = '';
-    if(!token) return;
-    new QRCode(box, { text: 'PRESENSI-MANDIRI|'+token, width:150, height:150, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
-  }
-
   async function renderKiosk(){
     const s = await api('/api/settings');
     if(s.ok){
       document.getElementById('jamMasuk').value = s.data.jamMasuk;
       document.getElementById('toleransi').value = s.data.toleransi;
-      const lokasi = s.data.lokasi || {};
-      document.getElementById('lokasiLat').value = lokasi.lat ?? '';
-      document.getElementById('lokasiLng').value = lokasi.lng ?? '';
-      document.getElementById('lokasiRadius').value = lokasi.radiusMeter ?? 50;
-      renderKioskQr(s.data.qrToken);
+      document.getElementById('officeLat').value = s.data.officeLat;
+      document.getElementById('officeLng').value = s.data.officeLng;
+      document.getElementById('officeRadius').value = s.data.officeRadius;
     }
     await refreshToday();
     await refreshRoster();
@@ -955,21 +949,24 @@
     if(!ok) return;
     document.getElementById('tanggalHariIni').textContent = formatTanggal(data.tanggal);
     renderLog(data.log || []);
+    announceLatestActivity(data.log || []);
   }
   function renderLog(log){
     const body = document.getElementById('logBody');
     if(log.length===0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr>';
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
         const rows = [];
         if(r.sumber === 'izin'){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td><td><span class="pill dash">—</span></td></tr>`);
           return rows.join('');
         }
-        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td></tr>`);
+        const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m` : '—';
+        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
         if(r.jamPulang){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td></tr>`);
+          const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
         }
         return rows.join('');
       }).join('');
@@ -1054,61 +1051,16 @@
   document.getElementById('saveSettings').addEventListener('click', async ()=>{
     const jamMasuk = document.getElementById('jamMasuk').value || '08:00';
     const toleransi = parseInt(document.getElementById('toleransi').value) || 0;
+    const officeLat = document.getElementById('officeLat').value;
+    const officeLng = document.getElementById('officeLng').value;
+    const officeRadius = document.getElementById('officeRadius').value;
     await api('/api/settings', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ jamMasuk, toleransi })
+      body: JSON.stringify({ jamMasuk, toleransi, officeLat, officeLng, officeRadius })
     });
     const btn = document.getElementById('saveSettings');
     const orig = btn.textContent; btn.textContent = 'Tersimpan ✓';
     setTimeout(()=> btn.textContent = orig, 1200);
-  });
-
-  document.getElementById('useMyLocation').addEventListener('click', ()=>{
-    const btn = document.getElementById('useMyLocation');
-    const msg = document.getElementById('lokasiMsg');
-    if(!navigator.geolocation){
-      msg.innerHTML = '<div class="msg-err">Perangkat/browser ini tidak mendukung GPS.</div>';
-      return;
-    }
-    const orig = btn.textContent; btn.textContent = 'Mengambil lokasi…'; btn.disabled = true;
-    navigator.geolocation.getCurrentPosition((pos)=>{
-      document.getElementById('lokasiLat').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('lokasiLng').value = pos.coords.longitude.toFixed(6);
-      msg.innerHTML = `<div class="msg-ok">Lokasi terisi (akurasi ±${Math.round(pos.coords.accuracy)}m). Periksa lalu klik "Simpan Lokasi".</div>`;
-      btn.textContent = orig; btn.disabled = false;
-    }, (err)=>{
-      msg.innerHTML = `<div class="msg-err">Gagal mengambil lokasi: ${escapeHtml(err.message || 'izin lokasi ditolak')}.</div>`;
-      btn.textContent = orig; btn.disabled = false;
-    }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
-  });
-
-  document.getElementById('saveLokasi').addEventListener('click', async ()=>{
-    const lokasiLat = document.getElementById('lokasiLat').value.trim();
-    const lokasiLng = document.getElementById('lokasiLng').value.trim();
-    const radiusMeter = document.getElementById('lokasiRadius').value.trim();
-    const msg = document.getElementById('lokasiMsg');
-    const { ok, data } = await api('/api/settings', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ lokasiLat, lokasiLng, radiusMeter })
-    });
-    if(ok && data.ok){
-      msg.innerHTML = '<div class="msg-ok">Lokasi & radius tersimpan.</div>';
-    } else {
-      msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal menyimpan lokasi.')}</div>`;
-    }
-  });
-
-  document.getElementById('regenToken').addEventListener('click', async ()=>{
-    const { ok, data } = await api('/api/kiosk-token', { method:'POST' });
-    if(ok && data.ok){
-      renderKioskQr(data.qrToken);
-    } else {
-      alert((data && data.message) || 'Gagal membuat ulang kode.');
-    }
-  });
-
-  document.getElementById('manualModeDetails').addEventListener('toggle', (e)=>{
-    if(e.target.open){ startScanner(); } else { stopScanner(); }
   });
 
   document.getElementById('saveCredentials').addEventListener('click', async ()=>{
@@ -1184,63 +1136,69 @@
     }
   });
 
-  // ---------- scanning ----------
-  async function startScanner(){
-    const cap = document.getElementById('scanCaption');
-    try{
-      scanner = new Html5Qrcode("reader");
-      const cams = await Html5Qrcode.getCameras();
-      if(!cams || cams.length===0){ cap.textContent = 'Kamera tidak tersedia — pakai input ID manual'; return; }
-      await scanner.start({facingMode:"environment"}, {fps:10, qrbox:230}, (text)=>handleScan(text), ()=>{});
-    }catch(e){
-      cap.textContent = 'Akses kamera ditolak — pakai input ID manual';
-    }
-  }
-  function stopScanner(){
-    if(scanner){ scanner.stop().then(()=>scanner.clear()).catch(()=>{}); scanner=null; }
-  }
-  function handleScan(text){
-    const parts = text.split('|');
-    if(parts[0] !== 'KARTU' || !parts[1]){ processResult(null, 'Kartu tidak dikenali', null); return; }
-    processId(parts[1]);
-  }
-  document.getElementById('submitManual').addEventListener('click', ()=>{
-    const val = document.getElementById('manualId').value.trim().toUpperCase();
-    if(!val) return;
-    processId(val);
-    document.getElementById('manualId').value='';
-  });
+  // ---------- QR admin (polling sesi + countdown ring) ----------
+  const RING_R = 103;
+  const RING_CIRC = 2 * Math.PI * RING_R;
+  let lastKnownLogCount = 0;
+  let lastKnownLogSnapshot = '';
 
-  async function processId(id){
-    const { ok, data } = await api('/api/scan', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id })
-    });
-    if(!ok){
-      processResult(null, (data && data.message) || 'Terjadi kesalahan.', null);
+  function renderAdminQr(token){
+    const box = document.getElementById('adminQr');
+    box.innerHTML = '';
+    new QRCode(box, { text: 'SESI|'+token, width:156, height:156, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  async function pollAdminQr(){
+    const { ok, data } = await api('/api/qr-session');
+    if(!ok) return;
+    if(data.token !== adminQrLastToken){
+      adminQrLastToken = data.token;
+      renderAdminQr(data.token);
+    }
+    const remaining = Math.max(0, Math.ceil((data.expiresAt - Date.now())/1000));
+    const ring = document.getElementById('ringProgress');
+    if(ring){
+      ring.style.strokeDasharray = RING_CIRC;
+      ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/20);
+    }
+    document.getElementById('countdownBadge').textContent = 'refresh dalam ' + remaining + 's';
+    await refreshToday();
+  }
+
+  function startAdminQrPolling(){
+    adminQrLastToken = null;
+    lastKnownLogSnapshot = '';
+    pollAdminQr();
+    if(adminQrPollTimer) clearInterval(adminQrPollTimer);
+    adminQrPollTimer = setInterval(pollAdminQr, 1000);
+  }
+  function stopAdminQrPolling(){
+    if(adminQrPollTimer){ clearInterval(adminQrPollTimer); adminQrPollTimer=null; }
+  }
+
+  // Tampilkan aktivitas absen terbaru di banner admin (dibandingkan dengan
+  // snapshot log terakhir, supaya cuma muncul kalau memang ada yang baru).
+  function announceLatestActivity(log){
+    const snapshot = JSON.stringify(log.map(r=>[r.pesertaId, r.jamMasuk, r.jamPulang]));
+    if(snapshot === lastKnownLogSnapshot) return;
+    lastKnownLogSnapshot = snapshot;
+    if(log.length === 0) return;
+    const latest = log[log.length-1];
+    const banner = document.getElementById('resultBanner');
+    banner.classList.remove('masuk','pulang','error');
+    if(latest.jamPulang && !latest.jamMasuk){
+      // entri izin — tidak perlu banner aktivitas
       return;
     }
-    if(data.ok){
-      await refreshToday();
-      processResult(data.peserta, data.message, data.jenis);
-    } else {
-      processResult(data.peserta || null, data.message, null);
-    }
-  }
-
-  function processResult(p, msg, jenis){
-    const banner = document.getElementById('resultBanner');
-    const flash = document.getElementById('flashOverlay');
-    banner.classList.remove('masuk','pulang','error');
-    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : jenis==='Pulang' ? 'pulang' : 'error');
-    document.getElementById('resultName').textContent = p ? p.nama : 'Tidak dikenali';
-    document.getElementById('resultSub').textContent = msg;
-    document.getElementById('resultIcon').innerHTML = jenis
-      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
-    flash.classList.add('on');
-    setTimeout(()=>flash.classList.remove('on'), 200);
-    setTimeout(()=>banner.classList.remove('show'), 4000);
+    const jenis = latest.jamPulang ? 'Pulang' : 'Masuk';
+    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : 'pulang');
+    document.getElementById('resultName').textContent = latest.nama;
+    const jarakInfo = latest.lokasiMasuk ? ` · ${latest.lokasiMasuk.jarak}m dari kantor` : '';
+    document.getElementById('resultSub').textContent =
+      (jenis==='Masuk' ? `Absen masuk · ${latest.jamMasuk} · ${latest.statusMasuk}${jarakInfo}` : `Absen pulang · ${latest.jamPulang}`);
+    document.getElementById('resultIcon').innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    setTimeout(()=>banner.classList.remove('show'), 6000);
   }
 
   goLogin();

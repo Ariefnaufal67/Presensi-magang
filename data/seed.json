@@ -7,7 +7,10 @@
     "jamMasuk": "08:00",
     "toleransi": 15,
     "adminUsername": "admin",
-    "adminPassword": "admin123"
+    "adminPassword": "admin123",
+    "officeLat": -6.970290,
+    "officeLng": 110.424578,
+    "officeRadius": 50
   },
   "logs": {},
   "izin": []

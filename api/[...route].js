@@ -14,11 +14,10 @@ module.exports = async (req, res) => {
     if (route === 'login' && method === 'POST') return await handleLogin(req, res);
     if (route === 'roster') return await handleRoster(req, res);
     if (route === 'settings') return await handleSettings(req, res);
+    if (route === 'qr-session' && method === 'GET') return await handleQrSession(req, res);
     if (route === 'credentials' && method === 'POST') return await handleCredentials(req, res);
     if (route === 'admins') return await handleAdmins(req, res);
     if (route === 'scan' && method === 'POST') return await handleScan(req, res);
-    if (route === 'scan-mandiri' && method === 'POST') return await handleScanMandiri(req, res);
-    if (route === 'kiosk-token' && method === 'POST') return await handleKioskToken(req, res);
     if (route === 'mark-pulang' && method === 'POST') return await handleMarkPulang(req, res);
     if (route === 'today' && method === 'GET') return await handleToday(req, res);
     if (route === 'history' && method === 'GET') return await handleHistory(req, res);
@@ -108,8 +107,8 @@ async function handleSettings(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { jamMasuk, toleransi, lokasiLat, lokasiLng, radiusMeter } = req.body || {};
-    const settings = await store.updateSettings({ jamMasuk, toleransi, lokasiLat, lokasiLng, radiusMeter });
+    const { jamMasuk, toleransi, officeLat, officeLng, officeRadius } = req.body || {};
+    const settings = await store.updateSettings({ jamMasuk, toleransi, officeLat, officeLng, officeRadius });
     res.status(200).json({ ok: true, settings });
     return;
   }
@@ -117,10 +116,10 @@ async function handleSettings(req, res) {
   res.status(405).json({ ok: false, message: 'Method not allowed' });
 }
 
-// ---------- kiosk-token (buat ulang kode QR presensi mandiri) ----------
-async function handleKioskToken(req, res) {
-  const qrToken = await store.regenerateQrToken();
-  res.status(200).json({ ok: true, qrToken });
+// ---------- qr-session (token QR yang ditampilkan admin, di-scan peserta) ----------
+async function handleQrSession(req, res) {
+  const session = await store.getOrRefreshSession();
+  res.status(200).json(session);
 }
 
 // ---------- credentials (ganti username/password akun admin sendiri) ----------
@@ -185,20 +184,14 @@ async function handleAdmins(req, res) {
 
 // ---------- scan ----------
 async function handleScan(req, res) {
-  const { id } = req.body || {};
-  const result = await store.processScan(id);
-  const statusCode = 'peserta' in result ? 200 : 404;
-  res.status(statusCode).json(result);
-}
-
-// ---------- scan-mandiri (presensi mandiri lewat HP peserta + lokasi) ----------
-async function handleScanMandiri(req, res) {
-  const { pesertaId, token, lat, lng, accuracy } = req.body || {};
-  if (!pesertaId) {
-    res.status(400).json({ ok: false, message: 'Sesi login tidak valid. Silakan login ulang.' });
-    return;
-  }
-  const result = await store.processScanMandiri({ pesertaId, token, lat, lng, accuracy });
+  const { id, token, lat, lng, accuracy } = req.body || {};
+  const result = await store.processScan({
+    pesertaId: id,
+    token,
+    lat: typeof lat === 'number' ? lat : parseFloat(lat),
+    lng: typeof lng === 'number' ? lng : parseFloat(lng),
+    accuracy: accuracy === undefined || accuracy === null ? undefined : parseFloat(accuracy)
+  });
   const statusCode = 'peserta' in result ? 200 : 404;
   res.status(statusCode).json(result);
 }

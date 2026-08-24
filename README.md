@@ -22,7 +22,14 @@ versi prototipe sebelumnya.
 - **Multi-admin** — bisa ada lebih dari satu akun admin, masing-masing bisa
   login sendiri, ganti password sendiri, dan tambah/hapus akun admin lain
   (minimal harus ada 1 admin tersisa, tidak bisa dihapus semua).
-- Kartu QR pribadi per peserta, dikelola sepenuhnya oleh admin.
+- **QR ditampilkan di layar admin** (bukan lagi QR pribadi per peserta) —
+  kode berganti otomatis tiap ~20 detik supaya tidak bisa discreenshot dan
+  dipakai ulang dari jarak jauh.
+- **Verifikasi lokasi GPS (geofencing)** — peserta scan dari HP mereka
+  sendiri, browser meminta izin lokasi, dan server menolak absen kalau
+  peserta berada di luar radius yang ditentukan dari titik kantor (default
+  50 meter, bisa diubah admin). Ada juga pengecekan akurasi sinyal GPS
+  supaya lokasi yang terlalu tidak presisi tidak diterima begitu saja.
 - Kiosk scan otomatis — scan pertama di hari itu = masuk, scan berikutnya = pulang.
 - Jam masuk & toleransi keterlambatan yang bisa diatur admin, dipakai
   untuk menandai status "Tepat waktu" / "Terlambat" secara otomatis
@@ -36,12 +43,17 @@ versi prototipe sebelumnya.
 - **Statistik & leaderboard kehadiran** — ringkasan harian, persentase
   tepat waktu, dan peringkat per peserta untuk periode 7–60 hari terakhir.
 - **Password admin disimpan ter-hash (bcrypt)**, tidak dalam bentuk teks biasa.
-- **Presensi mandiri berbasis lokasi** — selain discan admin di kiosk, peserta
-  bisa login sendiri lewat HP, memindai kode QR yang tertampil di layar
-  kiosk (menu admin "QR Presensi Mandiri"), lalu presensi hanya tercatat
-  kalau HP-nya berada dalam radius yang ditentukan (default 50m) dari
-  koordinat lokasi magang yang diatur admin, dan sinyal GPS-nya cukup
-  akurat (ditolak kalau akurasi lebih kasar dari ~100m).
+
+### Catatan soal geofencing & fake GPS
+
+Verifikasi lokasi ini menaikkan usaha yang dibutuhkan untuk curang, tapi
+**bukan jaminan 100% anti-spoof** — aplikasi "fake GPS" di Android/iOS bisa
+membohongi API lokasi browser sepenuhnya, dan ini secara teknis tidak bisa
+dideteksi sempurna dari sisi web tanpa aplikasi native yang punya akses ke
+pengecekan integritas sistem operasi (di luar cakupan proyek ini). Kombinasi
+QR yang berganti tiap 20 detik + jarak GPS + ambang akurasi sinyal membuat
+kombinasi kecurangan jauh lebih sulit dan meninggalkan jejak (lat/lng/akurasi
+tersimpan di setiap entri kehadiran) untuk ditelusuri manual kalau dicurigai.
 
 ## Struktur proyek
 
@@ -134,8 +146,3 @@ vercel dev
 - Index unik `{pesertaId, tanggal}` di koleksi `attendance` mencegah satu
   peserta punya lebih dari satu entri absen di hari yang sama, meski ada
   banyak scan bersamaan.
-- **Batas presensi mandiri**: browser tidak punya cara resmi mendeteksi
-  aplikasi fake-GPS/mock-location — validasi jarak + akurasi GPS di sini
-  mempersulit, bukan menjamin 100% mustahil, dipalsukan. Kombinasikan
-  dengan kode QR kiosk (harus lihat layar kiosk langsung) dan "Buat ulang
-  kode" berkala kalau curiga ada kode yang bocor.
