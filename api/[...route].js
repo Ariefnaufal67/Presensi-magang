@@ -184,13 +184,14 @@ async function handleAdmins(req, res) {
 
 // ---------- scan ----------
 async function handleScan(req, res) {
-  const { id, token, lat, lng, accuracy } = req.body || {};
+  const { id, token, lat, lng, accuracy, curigaPalsu } = req.body || {};
   const result = await store.processScan({
     pesertaId: id,
     token,
     lat: typeof lat === 'number' ? lat : parseFloat(lat),
     lng: typeof lng === 'number' ? lng : parseFloat(lng),
-    accuracy: accuracy === undefined || accuracy === null ? undefined : parseFloat(accuracy)
+    accuracy: accuracy === undefined || accuracy === null ? undefined : parseFloat(accuracy),
+    curigaPalsu: !!curigaPalsu
   });
   const statusCode = 'peserta' in result ? 200 : 404;
   res.status(statusCode).json(result);

@@ -150,7 +150,7 @@
   .result-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
 
   .ring-wrap{position:relative;width:220px;height:220px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
-  .ring-wrap svg{position:absolute;top:0;left:0;width:220px;height:220px;transform:rotate(-90deg);}
+  .loc-gate-icon{width:46px;height:46px;border-radius:50%;background:var(--coral-dim);color:var(--coral);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}  .ring-wrap svg{position:absolute;top:0;left:0;width:220px;height:220px;transform:rotate(-90deg);}
   .ring-track{fill:none;stroke:rgba(255,255,255,.15);stroke-width:4;}
   .ring-progress{fill:none;stroke:var(--lime);stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset 1s linear;}
   #adminQr{width:172px;height:172px;background:#fff;border-radius:12px;padding:8px;display:flex;align-items:center;justify-content:center;}
@@ -241,21 +241,37 @@
 
       <div class="side-card">
         <h2>Absen Sekarang</h2>
-        <p class="desc" id="absenSub">Arahkan kamera ke QR di layar admin.</p>
-        <div class="scan-frame" style="max-width:320px;margin:0 auto 12px;">
-          <div id="pesertaReader"></div>
-          <div class="flash-overlay" id="pesertaFlash"></div>
+
+        <div id="locGate">
+          <div class="loc-gate-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-6.5-7-11.5A7 7 0 0 1 19 9.5C19 14.5 12 21 12 21z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9.5" r="2.3" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <p id="locGateMsg" style="text-align:center;font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Lokasi GPS wajib diaktifkan sebelum bisa absen. Meminta izin lokasi…</p>
+          <div id="locGateSteps" style="display:none;font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;text-align:left;background:var(--bg);border-radius:10px;padding:12px 14px;">
+            1. Ketuk ikon gembok/info di sebelah alamat situs pada browser<br>
+            2. Cari "Location" / "Lokasi", ubah jadi <b>Allow / Izinkan</b><br>
+            3. Kembali ke sini, ketuk tombol di bawah untuk coba lagi
+          </div>
+          <button class="btn ghost" id="retryLocBtn" style="max-width:260px;margin:0 auto;display:block;">Coba Lagi Aktifkan Lokasi</button>
         </div>
-        <div id="locStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;text-align:center;">Meminta izin lokasi…</div>
-        <div class="manual-row" style="margin-top:0;">
-          <input type="text" id="pesertaManualToken" placeholder="atau ketik kode dari layar admin" class="mono">
-          <button class="btn" style="width:auto;padding:10px 16px;" id="pesertaSubmitManual">Kirim</button>
-        </div>
-        <div class="result-banner" id="pesertaResultBanner">
-          <div class="result-icon" id="pesertaResultIcon"></div>
-          <div>
-            <div class="result-name" id="pesertaResultName">—</div>
-            <div class="result-sub" id="pesertaResultSub">—</div>
+
+        <div id="absenPanel" style="display:none;">
+          <p class="desc" id="absenSub">Arahkan kamera ke QR di layar admin.</p>
+          <div class="scan-frame" style="max-width:320px;margin:0 auto 12px;">
+            <div id="pesertaReader"></div>
+            <div class="flash-overlay" id="pesertaFlash"></div>
+          </div>
+          <div id="locStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;text-align:center;">Menyiapkan lokasi…</div>
+          <div class="manual-row" style="margin-top:0;">
+            <input type="text" id="pesertaManualToken" placeholder="atau ketik kode dari layar admin" class="mono">
+            <button class="btn" style="width:auto;padding:10px 16px;" id="pesertaSubmitManual">Kirim</button>
+          </div>
+          <div class="result-banner" id="pesertaResultBanner">
+            <div class="result-icon" id="pesertaResultIcon"></div>
+            <div>
+              <div class="result-name" id="pesertaResultName">—</div>
+              <div class="result-sub" id="pesertaResultSub">—</div>
+            </div>
           </div>
         </div>
       </div>
@@ -463,6 +479,7 @@
     [viewLogin, viewBadge, viewKiosk].forEach(v=>v.classList.remove('active'));
     stopAdminQrPolling();
     stopPesertaScanner();
+    stopGeoWatch();
   }
   function goLogin(){
     hideAll();
@@ -540,39 +557,105 @@
   });
 
   // ---------- absen peserta (scan QR admin + verifikasi lokasi) ----------
-  let pesertaGeo = null; // {lat, lng, accuracy}
+  let pesertaGeo = null; // {lat, lng, accuracy, curigaPalsu}
   let pesertaScanner = null;
   let pesertaBusy = false;
+  let geoWatchId = null;
+  let geoSamples = []; // beberapa pembacaan berturut-turut, dipakai untuk heuristik
+
+  const MIN_SAMPLES_BEFORE_READY = 3;
 
   function setLocStatus(text, isError){
     const el = document.getElementById('locStatus');
+    if(!el) return;
     el.textContent = text;
     el.style.color = isError ? 'var(--coral)' : 'var(--ink-soft)';
   }
 
+  function showLocGate(msg, showSteps){
+    document.getElementById('locGate').style.display = 'block';
+    document.getElementById('absenPanel').style.display = 'none';
+    document.getElementById('locGateMsg').textContent = msg;
+    document.getElementById('locGateSteps').style.display = showSteps ? 'block' : 'none';
+    stopPesertaScanner();
+  }
+  function showAbsenPanel(){
+    document.getElementById('locGate').style.display = 'none';
+    document.getElementById('absenPanel').style.display = 'block';
+  }
+
+  // Heuristik ringan untuk mencurigai fake-GPS: kalau beberapa pembacaan
+  // GPS berturut-turut PERSIS identik (lat/lng sampai banyak angka desimal)
+  // DAN akurasinya juga angka yang terlalu "rapi"/identik, itu tidak wajar —
+  // penerima GPS asli hampir selalu sedikit "goyang" antar pembacaan karena
+  // noise sinyal. Ini bukan bukti pasti (bisa saja false positive kalau HP
+  // memang diam sempurna dengan sinyal sangat bagus), makanya cuma dipakai
+  // sebagai TANDA PERINGATAN untuk admin, bukan pemblokiran otomatis.
+  function evaluateSuspicion(samples){
+    if(samples.length < MIN_SAMPLES_BEFORE_READY) return false;
+    const allSameLatLng = samples.every(s => s.lat === samples[0].lat && s.lng === samples[0].lng);
+    const allSameAccuracy = samples.every(s => s.accuracy === samples[0].accuracy);
+    const suspicious1 = allSameLatLng && allSameAccuracy;
+    // Fake-GPS app kadang melapor akurasi bulat mencurigakan (persis 1, 5, 10, dst)
+    const roundAccuracy = Number.isInteger(samples[0].accuracy) && samples[0].accuracy <= 10 && allSameAccuracy;
+    return suspicious1 || (allSameLatLng && roundAccuracy);
+  }
+
+  function stopGeoWatch(){
+    if(geoWatchId !== null && navigator.geolocation){
+      navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+    }
+  }
+
   function requestGeoLocation(){
     if(!navigator.geolocation){
-      setLocStatus('Browser ini tidak mendukung lokasi GPS. Gunakan browser lain.', true);
+      showLocGate('Browser ini tidak mendukung lokasi GPS. Gunakan browser lain (mis. Chrome terbaru).', false);
       return;
     }
-    setLocStatus('Meminta izin lokasi…');
-    navigator.geolocation.getCurrentPosition(
+    geoSamples = [];
+    pesertaGeo = null;
+    showLocGate('Meminta izin lokasi…', false);
+    stopGeoWatch();
+
+    geoWatchId = navigator.geolocation.watchPosition(
       (pos)=>{
-        pesertaGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
-        setLocStatus(`Lokasi terdeteksi (akurasi ±${Math.round(pos.coords.accuracy)}m).`);
+        const sample = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        geoSamples.push(sample);
+        if(geoSamples.length > 6) geoSamples.shift();
+
+        if(geoSamples.length < MIN_SAMPLES_BEFORE_READY){
+          showLocGate(`Menyiapkan lokasi… (${geoSamples.length}/${MIN_SAMPLES_BEFORE_READY})`, false);
+          return;
+        }
+
+        const curigaPalsu = evaluateSuspicion(geoSamples);
+        pesertaGeo = { ...sample, curigaPalsu };
+
+        if(document.getElementById('locGate').style.display !== 'none'){
+          showAbsenPanel();
+          startPesertaScanner();
+        }
+        setLocStatus(
+          curigaPalsu
+            ? `Lokasi terdeteksi, tapi pola sinyal GPS terlihat tidak wajar (kemungkinan lokasi palsu). Absen tetap bisa dicoba dan akan ditinjau admin.`
+            : `Lokasi terdeteksi (akurasi ±${Math.round(pos.coords.accuracy)}m).`,
+          curigaPalsu
+        );
       },
       (err)=>{
         pesertaGeo = null;
-        setLocStatus('Gagal mengambil lokasi — izinkan akses lokasi di browser lalu tekan tombol di bawah untuk coba lagi.', true);
+        stopGeoWatch();
+        showLocGate('Izin lokasi ditolak atau tidak tersedia. Aktifkan dulu lewat pengaturan browser di HP-mu.', true);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   }
 
+  document.getElementById('retryLocBtn').addEventListener('click', requestGeoLocation);
+
   async function initPesertaAbsen(){
-    pesertaGeo = null;
     requestGeoLocation();
-    await startPesertaScanner();
   }
 
   async function startPesertaScanner(){
@@ -609,8 +692,7 @@
     if(pesertaBusy) return;
     if(!currentPeserta){ return; }
     if(!pesertaGeo){
-      showPesertaResult(null, 'Lokasi belum terdeteksi. Tunggu sebentar atau izinkan akses lokasi, lalu coba lagi.', null);
-      requestGeoLocation();
+      showPesertaResult(null, 'Lokasi belum siap. Tunggu sebentar sampai lokasi terkonfirmasi, lalu coba lagi.', null);
       return;
     }
     pesertaBusy = true;
@@ -620,7 +702,11 @@
 
     const { ok, data } = await api('/api/scan', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id: currentPeserta.id, token, lat: pesertaGeo.lat, lng: pesertaGeo.lng, accuracy: pesertaGeo.accuracy })
+      body: JSON.stringify({
+        id: currentPeserta.id, token,
+        lat: pesertaGeo.lat, lng: pesertaGeo.lng, accuracy: pesertaGeo.accuracy,
+        curigaPalsu: pesertaGeo.curigaPalsu || false
+      })
     });
     document.getElementById('pesertaManualToken').value='';
     if(ok && data.ok){
@@ -962,10 +1048,10 @@
           rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td><td><span class="pill dash">—</span></td></tr>`);
           return rows.join('');
         }
-        const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m` : '—';
-        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
+        const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
+        rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
         if(r.jamPulang){
-          const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
+          const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
           rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
         }
         return rows.join('');
