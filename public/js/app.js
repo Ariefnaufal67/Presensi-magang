@@ -22,6 +22,7 @@
   let currentAdmin = null;
   let adminQrPollTimer = null;
   let adminQrLastToken = null;
+  let pendingAbsenToken = null;
 
   // ---------- nav ----------
   const viewLogin = document.getElementById('view-login');
@@ -286,24 +287,48 @@
     if(pesertaScanner){ pesertaScanner.stop().then(()=>pesertaScanner.clear()).catch(()=>{}); pesertaScanner=null; }
   }
   function handlePesertaScan(text){
+    if(pendingAbsenToken) return; // sudah menunggu konfirmasi, abaikan scan lain
     const parts = text.split('|');
     if(parts[0] !== 'SESI' || !parts[1]){ return; }
-    submitAbsen(parts[1]);
+    requestAbsenConfirmation(parts[1]);
   }
   document.getElementById('pesertaSubmitManual').addEventListener('click', ()=>{
     const val = document.getElementById('pesertaManualToken').value.trim().toUpperCase();
     if(!val) return;
-    submitAbsen(val);
+    requestAbsenConfirmation(val);
   });
   document.getElementById('pesertaManualToken').addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('pesertaSubmitManual').click(); }
   });
+
+  function requestAbsenConfirmation(token){
+    pendingAbsenToken = token;
+    if(pesertaScanner){ try{ pesertaScanner.pause(true); }catch(e){} }
+    document.getElementById('absenScanArea').style.display = 'none';
+    document.getElementById('absenConfirmBox').style.display = 'block';
+  }
+
+  function cancelAbsenConfirmation(){
+    pendingAbsenToken = null;
+    document.getElementById('pesertaManualToken').value = '';
+    document.getElementById('absenConfirmBox').style.display = 'none';
+    document.getElementById('absenScanArea').style.display = 'block';
+    if(pesertaScanner){ try{ pesertaScanner.resume(); }catch(e){} }
+  }
+
+  document.getElementById('absenConfirmBtn').addEventListener('click', ()=>{
+    const token = pendingAbsenToken;
+    if(!token) return;
+    submitAbsen(token);
+  });
+  document.getElementById('absenCancelBtn').addEventListener('click', cancelAbsenConfirmation);
 
   async function submitAbsen(token){
     if(pesertaBusy) return;
     if(!currentPeserta){ return; }
     if(!pesertaGeo){
       showPesertaResult(null, 'Lokasi belum siap. Tunggu sebentar sampai lokasi terkonfirmasi, lalu coba lagi.', null);
+      cancelAbsenConfirmation();
       return;
     }
     pesertaBusy = true;
@@ -319,7 +344,6 @@
         curigaPalsu: pesertaGeo.curigaPalsu || false
       })
     });
-    document.getElementById('pesertaManualToken').value='';
     if(ok && data.ok){
       showPesertaResult(data.peserta, data.message, data.jenis);
       loadHistory(currentPeserta.id);
@@ -327,6 +351,11 @@
       showPesertaResult(data.peserta || null, data.message || 'Absen gagal, coba lagi.', null);
     }
     pesertaBusy = false;
+    pendingAbsenToken = null;
+    document.getElementById('pesertaManualToken').value='';
+    document.getElementById('absenConfirmBox').style.display = 'none';
+    document.getElementById('absenScanArea').style.display = 'block';
+    if(pesertaScanner){ try{ pesertaScanner.resume(); }catch(e){} }
   }
 
   function showPesertaResult(p, msg, jenis){
@@ -489,6 +518,8 @@
       document.getElementById('officeLat').value = s.data.officeLat;
       document.getElementById('officeLng').value = s.data.officeLng;
       document.getElementById('officeRadius').value = s.data.officeRadius;
+      document.getElementById('jamPulangOtomatis').value = s.data.jamPulangOtomatis || '17:00';
+      document.getElementById('pulangOtomatisAktif').value = String(!!s.data.pulangOtomatisAktif);
     }
     await refreshToday();
     await refreshRoster();
@@ -758,6 +789,37 @@
     const btn = document.getElementById('saveSettings');
     const orig = btn.textContent; btn.textContent = 'Tersimpan ✓';
     setTimeout(()=> btn.textContent = orig, 1200);
+  });
+
+  document.getElementById('saveAutoPulangSettings').addEventListener('click', async ()=>{
+    const jamPulangOtomatis = document.getElementById('jamPulangOtomatis').value || '17:00';
+    const pulangOtomatisAktif = document.getElementById('pulangOtomatisAktif').value === 'true';
+    await api('/api/settings', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ jamPulangOtomatis, pulangOtomatisAktif })
+    });
+    const btn = document.getElementById('saveAutoPulangSettings');
+    const orig = btn.textContent; btn.textContent = 'Tersimpan ✓';
+    setTimeout(()=> btn.textContent = orig, 1200);
+  });
+
+  document.getElementById('runAutoPulangNow').addEventListener('click', async ()=>{
+    const btn = document.getElementById('runAutoPulangNow');
+    const msg = document.getElementById('autoPulangMsg');
+    btn.disabled = true;
+    const orig = btn.textContent; btn.textContent = 'Memproses…';
+    const { ok, data } = await api('/api/auto-pulang', { method:'POST' });
+    btn.disabled = false; btn.textContent = orig;
+    if(ok && data.ok){
+      msg.className = 'msg-ok';
+      msg.textContent = data.jumlah > 0
+        ? `Berhasil: ${data.jumlah} peserta ditandai pulang jam ${data.waktu} (${data.peserta.join(', ')}).`
+        : 'Tidak ada peserta yang perlu ditandai pulang saat ini.';
+      await refreshToday();
+    } else {
+      msg.className = 'msg-err';
+      msg.textContent = (data && data.message) || 'Gagal menjalankan pulang otomatis.';
+    }
   });
 
   document.getElementById('saveCredentials').addEventListener('click', async ()=>{

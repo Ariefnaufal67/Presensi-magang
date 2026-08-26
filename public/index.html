@@ -88,15 +88,22 @@
         </div>
 
         <div id="absenPanel" style="display:none;">
-          <p class="desc" id="absenSub">Arahkan kamera ke QR di layar admin.</p>
-          <div class="scan-frame" style="max-width:320px;margin:0 auto 12px;">
-            <div id="pesertaReader"></div>
-            <div class="flash-overlay" id="pesertaFlash"></div>
+          <div id="absenScanArea">
+            <p class="desc" id="absenSub">Arahkan kamera ke QR di layar admin.</p>
+            <div class="scan-frame" style="max-width:320px;margin:0 auto 12px;">
+              <div id="pesertaReader"></div>
+              <div class="flash-overlay" id="pesertaFlash"></div>
+            </div>
+            <div id="locStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;text-align:center;">Menyiapkan lokasi…</div>
+            <div class="manual-row" style="margin-top:0;">
+              <input type="text" id="pesertaManualToken" placeholder="atau ketik kode dari layar admin" class="mono">
+              <button class="btn" style="width:auto;padding:10px 16px;" id="pesertaSubmitManual">Kirim</button>
+            </div>
           </div>
-          <div id="locStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;text-align:center;">Menyiapkan lokasi…</div>
-          <div class="manual-row" style="margin-top:0;">
-            <input type="text" id="pesertaManualToken" placeholder="atau ketik kode dari layar admin" class="mono">
-            <button class="btn" style="width:auto;padding:10px 16px;" id="pesertaSubmitManual">Kirim</button>
+          <div id="absenConfirmBox" style="display:none;text-align:center;">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Kode terdeteksi. Konfirmasi untuk mencatat kehadiranmu sekarang.</p>
+            <button class="btn" id="absenConfirmBtn" style="margin-bottom:8px;">Ya, Catat Kehadiran Saya</button>
+            <button class="btn ghost" id="absenCancelBtn">Batal</button>
           </div>
           <div class="result-banner" id="pesertaResultBanner">
             <div class="result-icon" id="pesertaResultIcon"></div>
@@ -213,6 +220,25 @@
           </div>
           <div style="margin-bottom:10px;"><label for="officeRadius">Radius (meter)</label><input type="number" id="officeRadius" value="50" min="5"></div>
           <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
+        </div>
+
+        <div class="side-card">
+          <h2>Pulang Otomatis</h2>
+          <p class="desc">Peserta yang sudah absen masuk tapi lupa scan pulang akan otomatis ditandai pulang setiap hari pada jam ini.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <div><label for="jamPulangOtomatis">Jam pulang otomatis</label><input type="time" id="jamPulangOtomatis" value="17:00"></div>
+            <div>
+              <label for="pulangOtomatisAktif">Status</label>
+              <select id="pulangOtomatisAktif">
+                <option value="true">Aktif</option>
+                <option value="false">Nonaktif</option>
+              </select>
+            </div>
+          </div>
+          <p class="desc" style="font-size:11px;">Catatan: pada paket Vercel gratis (Hobby), jadwal otomatis cuma jalan sekali sehari dan waktunya bisa meleset sampai ±1 jam dari jam yang diatur di atas — bukan presisi ke menit. Kalau perlu tepat waktu di hari tertentu, pakai tombol "Jalankan Sekarang".</p>
+          <button class="btn ghost" id="saveAutoPulangSettings" style="margin-bottom:8px;">Simpan Pengaturan</button>
+          <button class="btn ghost" id="runAutoPulangNow">Jalankan Sekarang</button>
+          <div id="autoPulangMsg"></div>
         </div>
 
         <div class="side-card">

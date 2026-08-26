@@ -10,7 +10,9 @@
     "adminPassword": "admin123",
     "officeLat": -6.970290,
     "officeLng": 110.424578,
-    "officeRadius": 50
+    "officeRadius": 50,
+    "jamPulangOtomatis": "17:00",
+    "pulangOtomatisAktif": true
   },
   "logs": {},
   "izin": []

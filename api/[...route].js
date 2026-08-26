@@ -19,6 +19,8 @@ module.exports = async (req, res) => {
     if (route === 'admins') return await handleAdmins(req, res);
     if (route === 'scan' && method === 'POST') return await handleScan(req, res);
     if (route === 'mark-pulang' && method === 'POST') return await handleMarkPulang(req, res);
+    if (route === 'auto-pulang' && method === 'GET') return await handleAutoPulangCron(req, res);
+    if (route === 'auto-pulang' && method === 'POST') return await handleAutoPulangManual(req, res);
     if (route === 'today' && method === 'GET') return await handleToday(req, res);
     if (route === 'history' && method === 'GET') return await handleHistory(req, res);
     if (route === 'izin' && method === 'GET') return await handleIzinList(req, res);
@@ -202,6 +204,32 @@ async function handleMarkPulang(req, res) {
   const { pesertaId } = req.body || {};
   const result = await store.markPulangManual(pesertaId);
   res.status(result.ok ? 200 : 400).json(result);
+}
+
+// ---------- pulang otomatis ----------
+
+// Dipanggil oleh Vercel Cron Job tiap hari pada jam terjadwal (lihat
+// vercel.json). Vercel otomatis mengirim header
+// "Authorization: Bearer <CRON_SECRET>" berdasarkan environment variable
+// CRON_SECRET di project settings — endpoint ini hanya jalan kalau cocok,
+// supaya URL publiknya tidak bisa dipicu sembarang orang.
+async function handleAutoPulangCron(req, res) {
+  const expected = process.env.CRON_SECRET;
+  const authHeader = req.headers['authorization'] || '';
+  if (!expected || authHeader !== `Bearer ${expected}`) {
+    res.status(401).json({ ok: false, message: 'Unauthorized' });
+    return;
+  }
+  const result = await store.runAutoCheckout({ force: false });
+  res.status(200).json(result);
+}
+
+// Dipanggil dari tombol "Jalankan Sekarang" di panel admin, untuk tes manual.
+// Selalu jalan (force) terlepas dari toggle aktif/nonaktif, supaya admin bisa
+// memverifikasi fiturnya bekerja kapan saja.
+async function handleAutoPulangManual(req, res) {
+  const result = await store.runAutoCheckout({ force: true });
+  res.status(200).json(result);
 }
 
 // ---------- today ----------
