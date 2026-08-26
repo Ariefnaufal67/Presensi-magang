@@ -3,8 +3,8 @@
    Frontend vanilla JS untuk halaman login, badge peserta, dan kiosk admin.
    Mengonsumsi endpoint serverless di /api/[...route].js
    ========================================================================== */
+
 (function(){
-  // ---------- helpers ----------
   function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function initials(name){ return name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
   function formatTanggal(tk){
@@ -20,7 +20,8 @@
 
   let currentPeserta = null;
   let currentAdmin = null;
-  let scanner = null;
+  let adminQrPollTimer = null;
+  let adminQrLastToken = null;
 
   // ---------- nav ----------
   const viewLogin = document.getElementById('view-login');
@@ -30,7 +31,9 @@
 
   function hideAll(){
     [viewLogin, viewBadge, viewKiosk].forEach(v=>v.classList.remove('active'));
-    stopScanner();
+    stopAdminQrPolling();
+    stopPesertaScanner();
+    stopGeoWatch();
   }
   function goLogin(){
     hideAll();
@@ -72,7 +75,7 @@
       document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
       viewKiosk.classList.add('active');
       await renderKiosk();
-      startScanner();
+      startAdminQrPolling();
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
     }
@@ -93,8 +96,8 @@
       whoRow.style.display='flex';
       document.getElementById('whoami').textContent = currentPeserta.nama;
       document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
-      renderCard(currentPeserta);
       viewBadge.classList.add('active');
+      initPesertaAbsen();
       loadHistory(currentPeserta.id);
       loadIzinRiwayat(currentPeserta.id);
       const today = new Date();
@@ -107,14 +110,235 @@
     }
   });
 
-  // ---------- badge (peserta) ----------
-  function renderCard(p){
-    document.getElementById('avatarInit').textContent = initials(p.nama);
-    document.getElementById('idcardName').textContent = p.nama;
-    document.getElementById('idcardId').textContent = p.id + ' · ' + p.nim;
-    const qrBox = document.getElementById('idcardQr');
-    qrBox.innerHTML = '';
-    new QRCode(qrBox, { text: 'KARTU|'+p.id, width:150, height:150, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  // ---------- absen peserta (scan QR admin + verifikasi lokasi) ----------
+  let pesertaGeo = null; // {lat, lng, accuracy, curigaPalsu}
+  let pesertaScanner = null;
+  let pesertaBusy = false;
+  let geoWatchId = null;
+  let geoSamples = []; // beberapa pembacaan berturut-turut, dipakai untuk heuristik
+  let geoSampleTimeoutId = null;
+
+  const MIN_SAMPLES_BEFORE_READY = 3;
+  const GEO_SAMPLE_WAIT_MS = 6000; // maksimal tunggu segini utk kumpulkan 3 sampel sebelum lanjut dgn seadanya
+
+  function setLocStatus(text, isError){
+    const el = document.getElementById('locStatus');
+    if(!el) return;
+    el.textContent = text;
+    el.style.color = isError ? 'var(--coral)' : 'var(--ink-soft)';
+  }
+
+  function showLocGate(msg, showSteps){
+    document.getElementById('locGate').style.display = 'block';
+    document.getElementById('absenPanel').style.display = 'none';
+    document.getElementById('locGateMsg').textContent = msg;
+    document.getElementById('locGateSteps').style.display = showSteps ? 'block' : 'none';
+    stopPesertaScanner();
+  }
+  function showAbsenPanel(){
+    document.getElementById('locGate').style.display = 'none';
+    document.getElementById('absenPanel').style.display = 'block';
+  }
+
+  // Heuristik ringan untuk mencurigai fake-GPS: kalau beberapa pembacaan
+  // GPS berturut-turut PERSIS identik (lat/lng sampai banyak angka desimal)
+  // DAN akurasinya juga angka yang terlalu "rapi"/identik, itu tidak wajar —
+  // penerima GPS SATELIT asli hampir selalu sedikit "goyang" antar pembacaan
+  // karena noise sinyal.
+  //
+  // PENTING: heuristik ini HANYA berlaku kalau akurasinya bagus (<=50m),
+  // yang berarti device sedang pakai GPS satelit asli. Kalau akurasinya
+  // kasar (>50m), device sedang pakai estimasi WiFi/seluler (umum terjadi
+  // di dalam gedung) — itu MEMANG wajar identik antar pembacaan karena hasil
+  // lookup database, bukan sinyal berisik. Tanpa pengecualian ini, peserta
+  // jujur yang kebetulan di dalam gedung bisa salah ditandai "dicurigai".
+  // Ini bukan bukti pasti, cuma dipakai sebagai TANDA PERINGATAN untuk admin,
+  // bukan pemblokiran otomatis.
+  function evaluateSuspicion(samples){
+    if(samples.length < MIN_SAMPLES_BEFORE_READY) return false;
+    const akurasiBagus = samples.every(s => typeof s.accuracy === 'number' && s.accuracy <= 50);
+    if(!akurasiBagus) return false;
+    const allSameLatLng = samples.every(s => s.lat === samples[0].lat && s.lng === samples[0].lng);
+    const allSameAccuracy = samples.every(s => s.accuracy === samples[0].accuracy);
+    const suspicious1 = allSameLatLng && allSameAccuracy;
+    // Fake-GPS app kadang melapor akurasi bulat mencurigakan (persis 1, 5, 10, dst)
+    const roundAccuracy = Number.isInteger(samples[0].accuracy) && samples[0].accuracy <= 10 && allSameAccuracy;
+    return suspicious1 || (allSameLatLng && roundAccuracy);
+  }
+
+  function stopGeoWatch(){
+    if(geoWatchId !== null && navigator.geolocation){
+      navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+    }
+    if(geoSampleTimeoutId !== null){
+      clearTimeout(geoSampleTimeoutId);
+      geoSampleTimeoutId = null;
+    }
+  }
+
+  function requestGeoLocation(retryLowAccuracy){
+    if(!navigator.geolocation){
+      showLocGate('Browser ini tidak mendukung lokasi GPS. Gunakan browser lain (mis. Chrome terbaru).', false);
+      return;
+    }
+    geoSamples = [];
+    pesertaGeo = null;
+    showLocGate(retryLowAccuracy ? 'Mencoba mode lokasi cadangan (WiFi/jaringan)…' : 'Meminta izin lokasi…', false);
+    stopGeoWatch();
+
+    // Kalau 3 pembacaan berturut-turut tidak kunjung datang (umum terjadi di
+    // mode WiFi/jaringan yang kadang cuma kasih 1 pembacaan lalu berhenti
+    // update), jangan macet nunggu selamanya — lanjut pakai sampel seadanya
+    // setelah beberapa detik.
+    function finalizeWithWhateverWeHave(){
+      if(geoSamples.length === 0) return; // belum ada sampel sama sekali, biarkan proses error/watch yang menangani
+      const sample = geoSamples[geoSamples.length - 1];
+      const curigaPalsu = geoSamples.length >= MIN_SAMPLES_BEFORE_READY ? evaluateSuspicion(geoSamples) : false;
+      pesertaGeo = { ...sample, curigaPalsu };
+      if(document.getElementById('locGate').style.display !== 'none'){
+        showAbsenPanel();
+        startPesertaScanner();
+      }
+      setLocStatus(`Lokasi terdeteksi (akurasi ±${Math.round(sample.accuracy)}m).`, false);
+    }
+
+    geoWatchId = navigator.geolocation.watchPosition(
+      (pos)=>{
+        const sample = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        geoSamples.push(sample);
+        if(geoSamples.length > 6) geoSamples.shift();
+
+        if(geoSamples.length === 1 && geoSampleTimeoutId === null){
+          geoSampleTimeoutId = setTimeout(()=>{
+            geoSampleTimeoutId = null;
+            if(!pesertaGeo) finalizeWithWhateverWeHave();
+          }, GEO_SAMPLE_WAIT_MS);
+        }
+
+        if(geoSamples.length < MIN_SAMPLES_BEFORE_READY){
+          showLocGate(`Menyiapkan lokasi… (${geoSamples.length}/${MIN_SAMPLES_BEFORE_READY})`, false);
+          return;
+        }
+
+        if(geoSampleTimeoutId !== null){ clearTimeout(geoSampleTimeoutId); geoSampleTimeoutId = null; }
+        const curigaPalsu = evaluateSuspicion(geoSamples);
+        pesertaGeo = { ...sample, curigaPalsu };
+
+        if(document.getElementById('locGate').style.display !== 'none'){
+          showAbsenPanel();
+          startPesertaScanner();
+        }
+        setLocStatus(
+          curigaPalsu
+            ? `Lokasi terdeteksi, tapi pola sinyal GPS terlihat tidak wajar (kemungkinan lokasi palsu). Absen tetap bisa dicoba dan akan ditinjau admin.`
+            : `Lokasi terdeteksi (akurasi ±${Math.round(pos.coords.accuracy)}m).`,
+          curigaPalsu
+        );
+      },
+      (err)=>{
+        stopGeoWatch();
+
+        // code 1 = PERMISSION_DENIED (izin ditolak) -> memang perlu ubah izin di browser.
+        // code 2 = POSITION_UNAVAILABLE, code 3 = TIMEOUT -> bukan soal izin, biasanya
+        // sinyal GPS satelit tidak ketemu sama sekali (umum di dalam gedung). Untuk
+        // kasus ini coba mode akurasi rendah (pakai WiFi/jaringan, biasanya lebih
+        // cepat dapat sinyal walau kurang presisi) sebagai cadangan otomatis.
+        if(err.code === 1){
+          pesertaGeo = null;
+          showLocGate('Izin lokasi ditolak untuk situs ini. Aktifkan dulu lewat pengaturan browser di HP-mu (lihat langkah di bawah).', true);
+        } else if(geoSamples.length > 0){
+          // Sudah sempat dapat minimal 1 pembacaan sebelum error -> tetap pakai itu.
+          finalizeWithWhateverWeHave();
+        } else if(!retryLowAccuracy){
+          requestGeoLocation(true);
+        } else {
+          pesertaGeo = null;
+          showLocGate('GPS tidak menemukan sinyal sama sekali (bukan soal izin). Pastikan Location & WiFi aktif di HP, lalu coba lagi — kalau di dalam gedung, coba dekat jendela sebentar.', true);
+        }
+      },
+      retryLowAccuracy
+        ? { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+        : { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  }
+
+  document.getElementById('retryLocBtn').addEventListener('click', requestGeoLocation);
+
+  async function initPesertaAbsen(){
+    requestGeoLocation();
+  }
+
+  async function startPesertaScanner(){
+    try{
+      pesertaScanner = new Html5Qrcode("pesertaReader");
+      const cams = await Html5Qrcode.getCameras();
+      if(!cams || cams.length===0){
+        document.getElementById('absenSub').textContent = 'Kamera tidak tersedia — pakai input kode manual di bawah.';
+        return;
+      }
+      await pesertaScanner.start({facingMode:"environment"}, {fps:10, qrbox:220}, (text)=>handlePesertaScan(text), ()=>{});
+    }catch(e){
+      document.getElementById('absenSub').textContent = 'Akses kamera ditolak — pakai input kode manual di bawah.';
+    }
+  }
+  function stopPesertaScanner(){
+    if(pesertaScanner){ pesertaScanner.stop().then(()=>pesertaScanner.clear()).catch(()=>{}); pesertaScanner=null; }
+  }
+  function handlePesertaScan(text){
+    const parts = text.split('|');
+    if(parts[0] !== 'SESI' || !parts[1]){ return; }
+    submitAbsen(parts[1]);
+  }
+  document.getElementById('pesertaSubmitManual').addEventListener('click', ()=>{
+    const val = document.getElementById('pesertaManualToken').value.trim().toUpperCase();
+    if(!val) return;
+    submitAbsen(val);
+  });
+  document.getElementById('pesertaManualToken').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('pesertaSubmitManual').click(); }
+  });
+
+  async function submitAbsen(token){
+    if(pesertaBusy) return;
+    if(!currentPeserta){ return; }
+    if(!pesertaGeo){
+      showPesertaResult(null, 'Lokasi belum siap. Tunggu sebentar sampai lokasi terkonfirmasi, lalu coba lagi.', null);
+      return;
+    }
+    pesertaBusy = true;
+    const flash = document.getElementById('pesertaFlash');
+    flash.classList.add('on');
+    setTimeout(()=>flash.classList.remove('on'), 200);
+
+    const { ok, data } = await api('/api/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        id: currentPeserta.id, token,
+        lat: pesertaGeo.lat, lng: pesertaGeo.lng, accuracy: pesertaGeo.accuracy,
+        curigaPalsu: pesertaGeo.curigaPalsu || false
+      })
+    });
+    document.getElementById('pesertaManualToken').value='';
+    if(ok && data.ok){
+      showPesertaResult(data.peserta, data.message, data.jenis);
+      loadHistory(currentPeserta.id);
+    } else {
+      showPesertaResult(data.peserta || null, data.message || 'Absen gagal, coba lagi.', null);
+    }
+    pesertaBusy = false;
+  }
+
+  function showPesertaResult(p, msg, jenis){
+    const banner = document.getElementById('pesertaResultBanner');
+    banner.classList.remove('masuk','pulang','error');
+    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : jenis==='Pulang' ? 'pulang' : 'error');
+    document.getElementById('pesertaResultName').textContent = jenis ? 'Berhasil' : 'Gagal';
+    document.getElementById('pesertaResultSub').textContent = msg;
+    document.getElementById('pesertaResultIcon').innerHTML = jenis
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+    setTimeout(()=>banner.classList.remove('show'), 6000);
   }
 
   async function loadHistory(pesertaId){
@@ -262,6 +486,9 @@
     if(s.ok){
       document.getElementById('jamMasuk').value = s.data.jamMasuk;
       document.getElementById('toleransi').value = s.data.toleransi;
+      document.getElementById('officeLat').value = s.data.officeLat;
+      document.getElementById('officeLng').value = s.data.officeLng;
+      document.getElementById('officeRadius').value = s.data.officeRadius;
     }
     await refreshToday();
     await refreshRoster();
@@ -419,21 +646,24 @@
     if(!ok) return;
     document.getElementById('tanggalHariIni').textContent = formatTanggal(data.tanggal);
     renderLog(data.log || []);
+    announceLatestActivity(data.log || []);
   }
   function renderLog(log){
     const body = document.getElementById('logBody');
     if(log.length===0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada aktivitas scan hari ini.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr>';
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
         const rows = [];
         if(r.sumber === 'izin'){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td><td><span class="pill dash">—</span></td></tr>`);
           return rows.join('');
         }
-        rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td></tr>`);
+        const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
+        rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
         if(r.jamPulang){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td></tr>`);
+          const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
         }
         return rows.join('');
       }).join('');
@@ -518,9 +748,12 @@
   document.getElementById('saveSettings').addEventListener('click', async ()=>{
     const jamMasuk = document.getElementById('jamMasuk').value || '08:00';
     const toleransi = parseInt(document.getElementById('toleransi').value) || 0;
+    const officeLat = document.getElementById('officeLat').value;
+    const officeLng = document.getElementById('officeLng').value;
+    const officeRadius = document.getElementById('officeRadius').value;
     await api('/api/settings', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ jamMasuk, toleransi })
+      body: JSON.stringify({ jamMasuk, toleransi, officeLat, officeLng, officeRadius })
     });
     const btn = document.getElementById('saveSettings');
     const orig = btn.textContent; btn.textContent = 'Tersimpan ✓';
@@ -600,63 +833,69 @@
     }
   });
 
-  // ---------- scanning ----------
-  async function startScanner(){
-    const cap = document.getElementById('scanCaption');
-    try{
-      scanner = new Html5Qrcode("reader");
-      const cams = await Html5Qrcode.getCameras();
-      if(!cams || cams.length===0){ cap.textContent = 'Kamera tidak tersedia — pakai input ID manual'; return; }
-      await scanner.start({facingMode:"environment"}, {fps:10, qrbox:230}, (text)=>handleScan(text), ()=>{});
-    }catch(e){
-      cap.textContent = 'Akses kamera ditolak — pakai input ID manual';
-    }
-  }
-  function stopScanner(){
-    if(scanner){ scanner.stop().then(()=>scanner.clear()).catch(()=>{}); scanner=null; }
-  }
-  function handleScan(text){
-    const parts = text.split('|');
-    if(parts[0] !== 'KARTU' || !parts[1]){ processResult(null, 'Kartu tidak dikenali', null); return; }
-    processId(parts[1]);
-  }
-  document.getElementById('submitManual').addEventListener('click', ()=>{
-    const val = document.getElementById('manualId').value.trim().toUpperCase();
-    if(!val) return;
-    processId(val);
-    document.getElementById('manualId').value='';
-  });
+  // ---------- QR admin (polling sesi + countdown ring) ----------
+  const RING_R = 103;
+  const RING_CIRC = 2 * Math.PI * RING_R;
+  let lastKnownLogCount = 0;
+  let lastKnownLogSnapshot = '';
 
-  async function processId(id){
-    const { ok, data } = await api('/api/scan', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id })
-    });
-    if(!ok){
-      processResult(null, (data && data.message) || 'Terjadi kesalahan.', null);
+  function renderAdminQr(token){
+    const box = document.getElementById('adminQr');
+    box.innerHTML = '';
+    new QRCode(box, { text: 'SESI|'+token, width:156, height:156, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  async function pollAdminQr(){
+    const { ok, data } = await api('/api/qr-session');
+    if(!ok) return;
+    if(data.token !== adminQrLastToken){
+      adminQrLastToken = data.token;
+      renderAdminQr(data.token);
+    }
+    const remaining = Math.max(0, Math.ceil((data.expiresAt - Date.now())/1000));
+    const ring = document.getElementById('ringProgress');
+    if(ring){
+      ring.style.strokeDasharray = RING_CIRC;
+      ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/20);
+    }
+    document.getElementById('countdownBadge').textContent = 'refresh dalam ' + remaining + 's';
+    await refreshToday();
+  }
+
+  function startAdminQrPolling(){
+    adminQrLastToken = null;
+    lastKnownLogSnapshot = '';
+    pollAdminQr();
+    if(adminQrPollTimer) clearInterval(adminQrPollTimer);
+    adminQrPollTimer = setInterval(pollAdminQr, 1000);
+  }
+  function stopAdminQrPolling(){
+    if(adminQrPollTimer){ clearInterval(adminQrPollTimer); adminQrPollTimer=null; }
+  }
+
+  // Tampilkan aktivitas absen terbaru di banner admin (dibandingkan dengan
+  // snapshot log terakhir, supaya cuma muncul kalau memang ada yang baru).
+  function announceLatestActivity(log){
+    const snapshot = JSON.stringify(log.map(r=>[r.pesertaId, r.jamMasuk, r.jamPulang]));
+    if(snapshot === lastKnownLogSnapshot) return;
+    lastKnownLogSnapshot = snapshot;
+    if(log.length === 0) return;
+    const latest = log[log.length-1];
+    const banner = document.getElementById('resultBanner');
+    banner.classList.remove('masuk','pulang','error');
+    if(latest.jamPulang && !latest.jamMasuk){
+      // entri izin — tidak perlu banner aktivitas
       return;
     }
-    if(data.ok){
-      await refreshToday();
-      processResult(data.peserta, data.message, data.jenis);
-    } else {
-      processResult(data.peserta || null, data.message, null);
-    }
-  }
-
-  function processResult(p, msg, jenis){
-    const banner = document.getElementById('resultBanner');
-    const flash = document.getElementById('flashOverlay');
-    banner.classList.remove('masuk','pulang','error');
-    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : jenis==='Pulang' ? 'pulang' : 'error');
-    document.getElementById('resultName').textContent = p ? p.nama : 'Tidak dikenali';
-    document.getElementById('resultSub').textContent = msg;
-    document.getElementById('resultIcon').innerHTML = jenis
-      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
-    flash.classList.add('on');
-    setTimeout(()=>flash.classList.remove('on'), 200);
-    setTimeout(()=>banner.classList.remove('show'), 4000);
+    const jenis = latest.jamPulang ? 'Pulang' : 'Masuk';
+    banner.classList.add('show', jenis==='Masuk' ? 'masuk' : 'pulang');
+    document.getElementById('resultName').textContent = latest.nama;
+    const jarakInfo = latest.lokasiMasuk ? ` · ${latest.lokasiMasuk.jarak}m dari kantor` : '';
+    document.getElementById('resultSub').textContent =
+      (jenis==='Masuk' ? `Absen masuk · ${latest.jamMasuk} · ${latest.statusMasuk}${jarakInfo}` : `Absen pulang · ${latest.jamPulang}`);
+    document.getElementById('resultIcon').innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    setTimeout(()=>banner.classList.remove('show'), 6000);
   }
 
   goLogin();
