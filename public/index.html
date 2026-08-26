@@ -562,8 +562,10 @@
   let pesertaBusy = false;
   let geoWatchId = null;
   let geoSamples = []; // beberapa pembacaan berturut-turut, dipakai untuk heuristik
+  let geoSampleTimeoutId = null;
 
   const MIN_SAMPLES_BEFORE_READY = 3;
+  const GEO_SAMPLE_WAIT_MS = 6000; // maksimal tunggu segini utk kumpulkan 3 sampel sebelum lanjut dgn seadanya
 
   function setLocStatus(text, isError){
     const el = document.getElementById('locStatus');
@@ -615,6 +617,10 @@
       navigator.geolocation.clearWatch(geoWatchId);
       geoWatchId = null;
     }
+    if(geoSampleTimeoutId !== null){
+      clearTimeout(geoSampleTimeoutId);
+      geoSampleTimeoutId = null;
+    }
   }
 
   function requestGeoLocation(retryLowAccuracy){
@@ -627,17 +633,41 @@
     showLocGate(retryLowAccuracy ? 'Mencoba mode lokasi cadangan (WiFi/jaringan)…' : 'Meminta izin lokasi…', false);
     stopGeoWatch();
 
+    // Kalau 3 pembacaan berturut-turut tidak kunjung datang (umum terjadi di
+    // mode WiFi/jaringan yang kadang cuma kasih 1 pembacaan lalu berhenti
+    // update), jangan macet nunggu selamanya — lanjut pakai sampel seadanya
+    // setelah beberapa detik.
+    function finalizeWithWhateverWeHave(){
+      if(geoSamples.length === 0) return; // belum ada sampel sama sekali, biarkan proses error/watch yang menangani
+      const sample = geoSamples[geoSamples.length - 1];
+      const curigaPalsu = geoSamples.length >= MIN_SAMPLES_BEFORE_READY ? evaluateSuspicion(geoSamples) : false;
+      pesertaGeo = { ...sample, curigaPalsu };
+      if(document.getElementById('locGate').style.display !== 'none'){
+        showAbsenPanel();
+        startPesertaScanner();
+      }
+      setLocStatus(`Lokasi terdeteksi (akurasi ±${Math.round(sample.accuracy)}m).`, false);
+    }
+
     geoWatchId = navigator.geolocation.watchPosition(
       (pos)=>{
         const sample = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
         geoSamples.push(sample);
         if(geoSamples.length > 6) geoSamples.shift();
 
+        if(geoSamples.length === 1 && geoSampleTimeoutId === null){
+          geoSampleTimeoutId = setTimeout(()=>{
+            geoSampleTimeoutId = null;
+            if(!pesertaGeo) finalizeWithWhateverWeHave();
+          }, GEO_SAMPLE_WAIT_MS);
+        }
+
         if(geoSamples.length < MIN_SAMPLES_BEFORE_READY){
           showLocGate(`Menyiapkan lokasi… (${geoSamples.length}/${MIN_SAMPLES_BEFORE_READY})`, false);
           return;
         }
 
+        if(geoSampleTimeoutId !== null){ clearTimeout(geoSampleTimeoutId); geoSampleTimeoutId = null; }
         const curigaPalsu = evaluateSuspicion(geoSamples);
         pesertaGeo = { ...sample, curigaPalsu };
 
@@ -653,7 +683,6 @@
         );
       },
       (err)=>{
-        pesertaGeo = null;
         stopGeoWatch();
 
         // code 1 = PERMISSION_DENIED (izin ditolak) -> memang perlu ubah izin di browser.
@@ -662,10 +691,15 @@
         // kasus ini coba mode akurasi rendah (pakai WiFi/jaringan, biasanya lebih
         // cepat dapat sinyal walau kurang presisi) sebagai cadangan otomatis.
         if(err.code === 1){
+          pesertaGeo = null;
           showLocGate('Izin lokasi ditolak untuk situs ini. Aktifkan dulu lewat pengaturan browser di HP-mu (lihat langkah di bawah).', true);
+        } else if(geoSamples.length > 0){
+          // Sudah sempat dapat minimal 1 pembacaan sebelum error -> tetap pakai itu.
+          finalizeWithWhateverWeHave();
         } else if(!retryLowAccuracy){
           requestGeoLocation(true);
         } else {
+          pesertaGeo = null;
           showLocGate('GPS tidak menemukan sinyal sama sekali (bukan soal izin). Pastikan Location & WiFi aktif di HP, lalu coba lagi — kalau di dalam gedung, coba dekat jendela sebentar.', true);
         }
       },
