@@ -617,14 +617,14 @@
     }
   }
 
-  function requestGeoLocation(){
+  function requestGeoLocation(retryLowAccuracy){
     if(!navigator.geolocation){
       showLocGate('Browser ini tidak mendukung lokasi GPS. Gunakan browser lain (mis. Chrome terbaru).', false);
       return;
     }
     geoSamples = [];
     pesertaGeo = null;
-    showLocGate('Meminta izin lokasi…', false);
+    showLocGate(retryLowAccuracy ? 'Mencoba mode lokasi cadangan (WiFi/jaringan)…' : 'Meminta izin lokasi…', false);
     stopGeoWatch();
 
     geoWatchId = navigator.geolocation.watchPosition(
@@ -655,9 +655,23 @@
       (err)=>{
         pesertaGeo = null;
         stopGeoWatch();
-        showLocGate('Izin lokasi ditolak atau tidak tersedia. Aktifkan dulu lewat pengaturan browser di HP-mu.', true);
+
+        // code 1 = PERMISSION_DENIED (izin ditolak) -> memang perlu ubah izin di browser.
+        // code 2 = POSITION_UNAVAILABLE, code 3 = TIMEOUT -> bukan soal izin, biasanya
+        // sinyal GPS satelit tidak ketemu sama sekali (umum di dalam gedung). Untuk
+        // kasus ini coba mode akurasi rendah (pakai WiFi/jaringan, biasanya lebih
+        // cepat dapat sinyal walau kurang presisi) sebagai cadangan otomatis.
+        if(err.code === 1){
+          showLocGate('Izin lokasi ditolak untuk situs ini. Aktifkan dulu lewat pengaturan browser di HP-mu (lihat langkah di bawah).', true);
+        } else if(!retryLowAccuracy){
+          requestGeoLocation(true);
+        } else {
+          showLocGate('GPS tidak menemukan sinyal sama sekali (bukan soal izin). Pastikan Location & WiFi aktif di HP, lalu coba lagi — kalau di dalam gedung, coba dekat jendela sebentar.', true);
+        }
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      retryLowAccuracy
+        ? { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+        : { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   }
 
