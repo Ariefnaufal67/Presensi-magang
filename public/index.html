@@ -587,12 +587,21 @@
   // Heuristik ringan untuk mencurigai fake-GPS: kalau beberapa pembacaan
   // GPS berturut-turut PERSIS identik (lat/lng sampai banyak angka desimal)
   // DAN akurasinya juga angka yang terlalu "rapi"/identik, itu tidak wajar —
-  // penerima GPS asli hampir selalu sedikit "goyang" antar pembacaan karena
-  // noise sinyal. Ini bukan bukti pasti (bisa saja false positive kalau HP
-  // memang diam sempurna dengan sinyal sangat bagus), makanya cuma dipakai
-  // sebagai TANDA PERINGATAN untuk admin, bukan pemblokiran otomatis.
+  // penerima GPS SATELIT asli hampir selalu sedikit "goyang" antar pembacaan
+  // karena noise sinyal.
+  //
+  // PENTING: heuristik ini HANYA berlaku kalau akurasinya bagus (<=50m),
+  // yang berarti device sedang pakai GPS satelit asli. Kalau akurasinya
+  // kasar (>50m), device sedang pakai estimasi WiFi/seluler (umum terjadi
+  // di dalam gedung) — itu MEMANG wajar identik antar pembacaan karena hasil
+  // lookup database, bukan sinyal berisik. Tanpa pengecualian ini, peserta
+  // jujur yang kebetulan di dalam gedung bisa salah ditandai "dicurigai".
+  // Ini bukan bukti pasti, cuma dipakai sebagai TANDA PERINGATAN untuk admin,
+  // bukan pemblokiran otomatis.
   function evaluateSuspicion(samples){
     if(samples.length < MIN_SAMPLES_BEFORE_READY) return false;
+    const akurasiBagus = samples.every(s => typeof s.accuracy === 'number' && s.accuracy <= 50);
+    if(!akurasiBagus) return false;
     const allSameLatLng = samples.every(s => s.lat === samples[0].lat && s.lng === samples[0].lng);
     const allSameAccuracy = samples.every(s => s.accuracy === samples[0].accuracy);
     const suspicious1 = allSameLatLng && allSameAccuracy;
