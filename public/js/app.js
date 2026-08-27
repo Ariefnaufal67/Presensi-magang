@@ -23,6 +23,7 @@
   let adminQrPollTimer = null;
   let adminQrLastToken = null;
   let pendingAbsenToken = null;
+  const SESSION_KEY = 'presensi_session';
 
   // ---------- nav ----------
   const viewLogin = document.getElementById('view-login');
@@ -39,6 +40,7 @@
   function goLogin(){
     hideAll();
     document.body.classList.remove('kiosk-mode');
+    localStorage.removeItem(SESSION_KEY);
     currentPeserta = null; currentAdmin = null;
     whoRow.style.display = 'none';
     document.getElementById('loginNim').value='';
@@ -72,6 +74,19 @@
   });
 
   // ---------- admin login ----------
+  async function enterAdminSession(admin){
+    currentAdmin = admin;
+    hideAll();
+    document.body.classList.add('kiosk-mode');
+    whoRow.style.display='flex';
+    document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
+    document.getElementById('whoamiSidebar').textContent = currentAdmin.username;
+    document.getElementById('sidebarAvatar').textContent = currentAdmin.username.slice(0,1).toUpperCase();
+    viewKiosk.classList.add('active');
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ role:'admin', data: admin }));
+    await renderKiosk();
+    startAdminQrPolling();
+  }
   document.getElementById('submitAdminLogin').addEventListener('click', async ()=>{
     const username = document.getElementById('loginUser').value.trim();
     const password = document.getElementById('loginPass').value;
@@ -82,22 +97,30 @@
       body: JSON.stringify({ role:'admin', username, password })
     });
     if(ok && data.ok){
-      currentAdmin = data.admin;
-      hideAll();
-      document.body.classList.add('kiosk-mode');
-      whoRow.style.display='flex';
-      document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
-      document.getElementById('whoamiSidebar').textContent = currentAdmin.username;
-      document.getElementById('sidebarAvatar').textContent = currentAdmin.username.slice(0,1).toUpperCase();
-      viewKiosk.classList.add('active');
-      await renderKiosk();
-      startAdminQrPolling();
+      await enterAdminSession(data.admin);
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'Gagal login.')}</div>`;
     }
   });
 
   // ---------- peserta login ----------
+  function enterPesertaSession(peserta){
+    currentPeserta = peserta;
+    hideAll();
+    whoRow.style.display='flex';
+    document.getElementById('whoami').textContent = currentPeserta.nama;
+    document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
+    viewBadge.classList.add('active');
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ role:'peserta', data: peserta }));
+    initPesertaAbsen();
+    loadHistory(currentPeserta.id);
+    loadIzinRiwayat(currentPeserta.id);
+    const today = new Date();
+    const minDate = new Date(today); minDate.setDate(minDate.getDate() - 3);
+    document.getElementById('izinTanggal').min = minDate.toISOString().slice(0,10);
+    document.getElementById('izinTanggal').value = today.toISOString().slice(0,10);
+    resetIzinBuktiInput();
+  }
   document.getElementById('submitPesertaLogin').addEventListener('click', async ()=>{
     const nim = document.getElementById('loginNim').value.trim();
     const err = document.getElementById('pesertaLoginError');
@@ -107,20 +130,7 @@
       body: JSON.stringify({ role:'peserta', nim })
     });
     if(ok && data.ok){
-      currentPeserta = data.peserta;
-      hideAll();
-      whoRow.style.display='flex';
-      document.getElementById('whoami').textContent = currentPeserta.nama;
-      document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
-      viewBadge.classList.add('active');
-      initPesertaAbsen();
-      loadHistory(currentPeserta.id);
-      loadIzinRiwayat(currentPeserta.id);
-      const today = new Date();
-      const minDate = new Date(today); minDate.setDate(minDate.getDate() - 3);
-      document.getElementById('izinTanggal').min = minDate.toISOString().slice(0,10);
-      document.getElementById('izinTanggal').value = today.toISOString().slice(0,10);
-      resetIzinBuktiInput();
+      enterPesertaSession(data.peserta);
     } else {
       err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
     }
@@ -854,6 +864,9 @@
       msg.innerHTML = '<div class="msg-ok">Kredensial berhasil diganti. Gunakan yang baru saat login berikutnya.</div>';
       currentAdmin = { username };
       document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
+      document.getElementById('whoamiSidebar').textContent = currentAdmin.username;
+      document.getElementById('sidebarAvatar').textContent = currentAdmin.username.slice(0,1).toUpperCase();
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ role:'admin', data: currentAdmin }));
       await refreshAdminList();
     } else {
       msg.innerHTML = `<div class="msg-err">${escapeHtml((data && data.message) || 'Gagal mengganti kredensial.')}</div>`;
@@ -918,6 +931,7 @@
   const QR_SESSION_SECONDS = 60 * 60; // harus sama dengan SESSION_DURATION_MS di lib/store.js
   let lastKnownLogCount = 0;
   let lastKnownLogSnapshot = '';
+  let izinPollCounter = 0;
 
   function formatCountdown(sec){
     if(sec >= 60){
@@ -949,11 +963,17 @@
     }
     document.getElementById('countdownBadge').textContent = 'refresh dalam ' + formatCountdown(remaining);
     await refreshToday();
+    izinPollCounter++;
+    if(izinPollCounter >= 5){ // cek pengajuan izin baru tiap ~5 detik, bukan tiap detik
+      izinPollCounter = 0;
+      await refreshIzinPending();
+    }
   }
 
   function startAdminQrPolling(){
     adminQrLastToken = null;
     lastKnownLogSnapshot = '';
+    izinPollCounter = 0;
     pollAdminQr();
     if(adminQrPollTimer) clearInterval(adminQrPollTimer);
     adminQrPollTimer = setInterval(pollAdminQr, 1000);
@@ -987,5 +1007,17 @@
     setTimeout(()=>banner.classList.remove('show'), 6000);
   }
 
-  goLogin();
+  // ---------- pulihkan sesi setelah refresh halaman ----------
+  function restoreSession(){
+    let saved = null;
+    try{ saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(e){}
+    if(saved && saved.role === 'admin' && saved.data){
+      enterAdminSession(saved.data);
+    } else if(saved && saved.role === 'peserta' && saved.data){
+      enterPesertaSession(saved.data);
+    } else {
+      goLogin();
+    }
+  }
+  restoreSession();
 })();
