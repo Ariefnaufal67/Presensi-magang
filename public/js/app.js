@@ -915,8 +915,18 @@
   // ---------- QR admin (polling sesi + countdown ring) ----------
   const RING_R = 103;
   const RING_CIRC = 2 * Math.PI * RING_R;
+  const QR_SESSION_SECONDS = 60 * 60; // harus sama dengan SESSION_DURATION_MS di lib/store.js
   let lastKnownLogCount = 0;
   let lastKnownLogSnapshot = '';
+
+  function formatCountdown(sec){
+    if(sec >= 60){
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return `${m}m ${s}s`;
+    }
+    return `${sec}s`;
+  }
 
   function renderAdminQr(token){
     const box = document.getElementById('adminQr');
@@ -935,9 +945,9 @@
     const ring = document.getElementById('ringProgress');
     if(ring){
       ring.style.strokeDasharray = RING_CIRC;
-      ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/20);
+      ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/QR_SESSION_SECONDS);
     }
-    document.getElementById('countdownBadge').textContent = 'refresh dalam ' + remaining + 's';
+    document.getElementById('countdownBadge').textContent = 'refresh dalam ' + formatCountdown(remaining);
     await refreshToday();
   }
 
