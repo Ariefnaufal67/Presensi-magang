@@ -38,6 +38,7 @@
   }
   function goLogin(){
     hideAll();
+    document.body.classList.remove('kiosk-mode');
     currentPeserta = null; currentAdmin = null;
     whoRow.style.display = 'none';
     document.getElementById('loginNim').value='';
@@ -48,6 +49,17 @@
     viewLogin.classList.add('active');
   }
   document.getElementById('logoutBtn').addEventListener('click', goLogin);
+  document.getElementById('logoutBtnSidebar').addEventListener('click', goLogin);
+
+  // ---------- kiosk sidebar page switching ----------
+  document.querySelectorAll('.kiosk-nav-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.kiosk-nav-item').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.kiosk-page').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`.kiosk-page[data-page="${btn.dataset.page}"]`).classList.add('active');
+    });
+  });
 
   // ---------- login mode toggle ----------
   document.querySelectorAll('.segmented button').forEach(btn=>{
@@ -72,8 +84,11 @@
     if(ok && data.ok){
       currentAdmin = data.admin;
       hideAll();
+      document.body.classList.add('kiosk-mode');
       whoRow.style.display='flex';
       document.getElementById('whoami').textContent = 'Admin · ' + currentAdmin.username;
+      document.getElementById('whoamiSidebar').textContent = currentAdmin.username;
+      document.getElementById('sidebarAvatar').textContent = currentAdmin.username.slice(0,1).toUpperCase();
       viewKiosk.classList.add('active');
       await renderKiosk();
       startAdminQrPolling();
@@ -546,6 +561,8 @@
     document.getElementById('statPersenTepat').textContent = data.ringkasan.persenTepatWaktu===null ? '–' : data.ringkasan.persenTepatWaktu + '%';
     document.getElementById('statTotalTerlambat').textContent = data.ringkasan.totalTerlambat;
     document.getElementById('statTotalIzin').textContent = data.ringkasan.totalIzin;
+    document.getElementById('statTotalHadirTop').textContent = data.ringkasan.totalHadir;
+    document.getElementById('statPersenTepatTop').textContent = data.ringkasan.persenTepatWaktu===null ? '–' : data.ringkasan.persenTepatWaktu + '%';
 
     const labels = data.daily.map(d => new Date(d.tanggal+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short'}));
     const ctx = document.getElementById('statsChart').getContext('2d');

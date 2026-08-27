@@ -158,71 +158,173 @@
 
   <!-- KIOSK (ADMIN) -->
   <div class="view" id="view-kiosk">
-    <div class="kiosk-grid">
-      <div class="scan-stage">
-        <div class="ring-wrap">
-          <svg viewBox="0 0 220 220">
-            <circle class="ring-track" cx="110" cy="110" r="103"></circle>
-            <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="103"></circle>
-          </svg>
-          <div id="adminQr"></div>
+    <aside class="kiosk-sidebar">
+      <div class="kiosk-sidebar-brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="3" stroke="#FDF6EC" stroke-width="2"/><circle cx="12" cy="10" r="2.4" stroke="#FDF6EC" stroke-width="2"/><path d="M8 17h8" stroke="#FDF6EC" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div class="countdown-badge" id="countdownBadge">refresh dalam 20s</div>
-        <div class="scan-caption">
-          <h2>Minta peserta scan QR ini</h2>
-          <p>Kode berganti otomatis tiap ~20 detik. Peserta login pakai NIM, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
-        </div>
-        <div class="result-banner" id="resultBanner">
-          <div class="result-icon" id="resultIcon"></div>
-          <div>
-            <div class="result-name" id="resultName">—</div>
-            <div class="result-sub" id="resultSub">—</div>
-          </div>
+        <div>
+          <div class="brand-name">Presensi</div>
+          <div class="brand-sub">absensi magang · QR</div>
         </div>
       </div>
+      <nav class="kiosk-nav">
+        <button class="kiosk-nav-item active" data-page="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-5h4v5h3a1 1 0 0 0 1-1v-9"/></svg>
+          Dashboard
+        </button>
+        <button class="kiosk-nav-item" data-page="log">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>
+          Log Harian
+        </button>
+        <button class="kiosk-nav-item" data-page="peserta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.7 14.3c2.6.5 4.3 2.5 4.3 5.7"/></svg>
+          Kelola Peserta
+        </button>
+        <button class="kiosk-nav-item" data-page="izin">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V4"/><path d="m9.5 13 1.8 1.8L14.5 11"/></svg>
+          Pengajuan Izin
+          <span id="izinPendingCount" class="idcard-tag" style="display:none;"></span>
+        </button>
+        <button class="kiosk-nav-item" data-page="pulang">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/></svg>
+          Pulang Otomatis
+        </button>
+        <button class="kiosk-nav-item" data-page="admin">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5.5 5.8v5.1c0 4.7 2.8 8 6.5 9.6 3.7-1.6 6.5-4.9 6.5-9.6V5.8L12 3z"/></svg>
+          Kelola Admin
+        </button>
+        <button class="kiosk-nav-item" data-page="pengaturan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.8"/><path d="M19.4 13.6a1.7 1.7 0 0 0 .3 1.9 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V19.6a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3 2 2 0 1 1-2.8-2.8 1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9 2 2 0 1 1 2.8-2.8 1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3.4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3 2 2 0 1 1 2.8 2.8 1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          Pengaturan
+        </button>
+      </nav>
+      <div class="kiosk-sidebar-profile">
+        <div class="kiosk-profile-avatar" id="sidebarAvatar">A</div>
+        <div class="kiosk-profile-info">
+          <div class="kiosk-profile-name">Admin</div>
+          <div class="kiosk-profile-sub mono" id="whoamiSidebar"></div>
+        </div>
+        <button class="icon-btn" id="logoutBtnSidebar" title="Keluar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
+      </div>
+    </aside>
 
-      <div>
-        <div class="stats-row">
-          <div class="stat-card green"><div class="stat-num" id="statMasuk">0</div><div class="stat-label">Sudah masuk</div></div>
-          <div class="stat-card coral"><div class="stat-num" id="statPulang">0</div><div class="stat-label">Sudah pulang</div></div>
+    <div class="kiosk-main">
+
+      <!-- PAGE: Dashboard -->
+      <div class="kiosk-page active" data-page="dashboard">
+        <div class="dash-top-grid">
+          <div class="scan-stage">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 220 220">
+                <circle class="ring-track" cx="110" cy="110" r="103"></circle>
+                <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="103"></circle>
+              </svg>
+              <div id="adminQr"></div>
+            </div>
+            <div class="countdown-badge" id="countdownBadge">refresh dalam 20s</div>
+            <div class="scan-caption">
+              <h2>Minta peserta scan QR ini</h2>
+              <p>Kode berganti otomatis tiap ~20 detik. Peserta login pakai NIM, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
+            </div>
+            <div class="result-banner" id="resultBanner">
+              <div class="result-icon" id="resultIcon"></div>
+              <div>
+                <div class="result-name" id="resultName">—</div>
+                <div class="result-sub" id="resultSub">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-card">
+              <div class="metric-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></div>
+              <div><div class="metric-num" id="statMasuk">0</div><div class="metric-label">Sudah masuk</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon coral"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 17l5-5-5-5"/><path d="M19 12H7"/></svg></div>
+              <div><div class="metric-num" id="statPulang">0</div><div class="metric-label">Sudah pulang</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/></svg></div>
+              <div><div class="metric-num" id="statPersenTepatTop">–</div><div class="metric-label">Tepat waktu</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon lime"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.7 14.3c2.6.5 4.3 2.5 4.3 5.7"/></svg></div>
+              <div><div class="metric-num" id="statTotalHadirTop">–</div><div class="metric-label">Total hadir</div></div>
+            </div>
+          </div>
         </div>
 
-        <div class="side-card">
+        <div class="side-card" style="margin-top:20px;">
           <h2>Statistik Kehadiran</h2>
           <p class="desc">Ringkasan tren kehadiran & ketepatan waktu peserta magang.</p>
-          <div class="segmented" style="margin-bottom:14px;" id="statsPeriodTabs">
+          <div class="segmented" style="margin-bottom:14px;max-width:320px;" id="statsPeriodTabs">
             <button data-days="7">7 Hari</button>
             <button data-days="14" class="active">14 Hari</button>
             <button data-days="30">30 Hari</button>
           </div>
-          <div class="mini-stat-grid">
-            <div class="mini-stat"><div class="mini-stat-num" id="statTotalHadir">–</div><div class="mini-stat-label">Total hadir</div></div>
-            <div class="mini-stat"><div class="mini-stat-num" id="statPersenTepat">–</div><div class="mini-stat-label">Tepat waktu</div></div>
-            <div class="mini-stat"><div class="mini-stat-num" id="statTotalTerlambat">–</div><div class="mini-stat-label">Total terlambat</div></div>
-            <div class="mini-stat"><div class="mini-stat-num" id="statTotalIzin">–</div><div class="mini-stat-label">Izin/Sakit/Cuti</div></div>
+          <div class="stat-chart-row">
+            <div class="chart-wrap"><canvas id="statsChart"></canvas></div>
+            <div class="mini-stat-grid-2x2">
+              <div class="mini-stat"><div class="mini-stat-num" id="statTotalHadir">–</div><div class="mini-stat-label">Total hadir</div></div>
+              <div class="mini-stat"><div class="mini-stat-num" id="statPersenTepat">–</div><div class="mini-stat-label">Tepat waktu</div></div>
+              <div class="mini-stat"><div class="mini-stat-num" id="statTotalTerlambat">–</div><div class="mini-stat-label">Total terlambat</div></div>
+              <div class="mini-stat"><div class="mini-stat-num" id="statTotalIzin">–</div><div class="mini-stat-label">Izin/Sakit/Cuti</div></div>
+            </div>
           </div>
-          <div class="chart-wrap"><canvas id="statsChart"></canvas></div>
-          <h2 style="font-size:14px;margin-bottom:6px;">Peringkat Ketepatan Waktu</h2>
+          <h2 style="font-size:14px;margin:16px 0 6px;">Peringkat Ketepatan Waktu</h2>
           <div id="statsPeringkat"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
         </div>
+      </div>
 
-        <div class="side-card">
-          <h2>Jam Masuk & Toleransi</h2>
-          <p class="desc">Menentukan status "Tepat waktu" vs "Terlambat" saat scan masuk.</p>
-          <div class="field-pair" style="margin-bottom:10px;">
-            <div><label for="jamMasuk">Batas jam masuk</label><input type="time" id="jamMasuk" value="08:00"></div>
-            <div><label for="toleransi">Toleransi (menit)</label><input type="number" id="toleransi" value="15" min="0"></div>
-          </div>
-          <p class="desc" style="margin-top:16px;">Lokasi kantor untuk verifikasi GPS (geofencing) — peserta harus berada dalam radius ini supaya absen bisa tercatat.</p>
-          <div class="field-pair" style="margin-bottom:10px;">
-            <div><label>Latitude</label><input type="text" id="officeLat" placeholder="-6.970290"></div>
-            <div><label>Longitude</label><input type="text" id="officeLng" placeholder="110.424578"></div>
-          </div>
-          <div style="margin-bottom:10px;"><label for="officeRadius">Radius (meter)</label><input type="number" id="officeRadius" value="50" min="5"></div>
-          <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
+      <!-- PAGE: Log Harian -->
+      <div class="kiosk-page" data-page="log">
+        <div class="side-card kiosk-page-narrow" style="max-width:none;">
+          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
+          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <table>
+            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>
+            <tbody id="logBody"><tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr></tbody>
+          </table>
         </div>
+      </div>
 
-        <div class="side-card">
+      <!-- PAGE: Kelola Peserta -->
+      <div class="kiosk-page" data-page="peserta">
+        <div class="side-card kiosk-page-narrow">
+          <h2>Kelola Peserta</h2>
+          <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka. Admin juga bisa menandai pulang manual kalau peserta lupa scan.</p>
+          <div class="field-pair" style="margin-bottom:10px;">
+            <input type="text" id="newNama" placeholder="Nama">
+            <input type="text" id="newNim" placeholder="NIM / ID">
+          </div>
+          <input type="text" id="newAsalKampus" placeholder="Asal Sekolah / Kampus" style="margin-bottom:10px;">
+          <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
+          <div id="rosterList"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: Pengajuan Izin -->
+      <div class="kiosk-page" data-page="izin">
+        <div class="side-card kiosk-page-narrow">
+          <h2>Pengajuan Izin</h2>
+          <p class="desc">Setujui atau tolak pengajuan izin/sakit/cuti dari peserta magang.</p>
+          <div class="segmented" style="margin-bottom:14px;max-width:420px;" id="izinFilterTabs">
+            <button data-status="Menunggu" class="active">Menunggu</button>
+            <button data-status="Disetujui">Disetujui</button>
+            <button data-status="Ditolak">Ditolak</button>
+            <button data-status="Semua">Semua</button>
+          </div>
+          <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
+        </div>
+      </div>
+
+      <!-- PAGE: Pulang Otomatis -->
+      <div class="kiosk-page" data-page="pulang">
+        <div class="side-card kiosk-page-narrow">
           <h2>Pulang Otomatis</h2>
           <p class="desc">Peserta yang sudah absen masuk tapi lupa scan pulang akan otomatis ditandai pulang setiap hari pada jam ini.</p>
           <div class="field-pair" style="margin-bottom:10px;">
@@ -240,19 +342,11 @@
           <button class="btn ghost" id="runAutoPulangNow">Jalankan Sekarang</button>
           <div id="autoPulangMsg"></div>
         </div>
+      </div>
 
-        <div class="side-card">
-          <h2>Akun Saya</h2>
-          <p class="desc">Ganti username / password akun admin yang sedang login.</p>
-          <div class="field-pair" style="margin-bottom:10px;">
-            <div><label>Username baru</label><input type="text" id="newAdminUser" placeholder="admin"></div>
-            <div><label>Password baru</label><input type="password" id="newAdminPass" placeholder="min. 4 karakter"></div>
-          </div>
-          <button class="btn ghost" id="saveCredentials">Ganti Kredensial</button>
-          <div id="credentialMsg"></div>
-        </div>
-
-        <div class="side-card">
+      <!-- PAGE: Kelola Admin -->
+      <div class="kiosk-page" data-page="admin">
+        <div class="side-card kiosk-page-narrow">
           <h2>Kelola Akun Admin</h2>
           <p class="desc">Tambahkan admin lain kalau perlu lebih dari satu orang yang bisa buka kiosk ini.</p>
           <div class="field-pair" style="margin-bottom:10px;">
@@ -263,40 +357,40 @@
           <div id="addAdminMsg"></div>
           <div id="adminAccList"></div>
         </div>
+      </div>
 
-        <div class="side-card">
-          <h2>Pengajuan Izin <span id="izinPendingCount" class="idcard-tag" style="display:none;"></span></h2>
-          <p class="desc">Setujui atau tolak pengajuan izin/sakit/cuti dari peserta magang.</p>
-          <div class="segmented" style="margin-bottom:14px;" id="izinFilterTabs">
-            <button data-status="Menunggu" class="active">Menunggu</button>
-            <button data-status="Disetujui">Disetujui</button>
-            <button data-status="Ditolak">Ditolak</button>
-            <button data-status="Semua">Semua</button>
+      <!-- PAGE: Pengaturan -->
+      <div class="kiosk-page" data-page="pengaturan">
+        <div class="kiosk-cards-grid">
+          <div class="side-card">
+            <h2>Jam Masuk & Toleransi</h2>
+            <p class="desc">Menentukan status "Tepat waktu" vs "Terlambat" saat scan masuk.</p>
+            <div class="field-pair" style="margin-bottom:10px;">
+              <div><label for="jamMasuk">Batas jam masuk</label><input type="time" id="jamMasuk" value="08:00"></div>
+              <div><label for="toleransi">Toleransi (menit)</label><input type="number" id="toleransi" value="15" min="0"></div>
+            </div>
+            <p class="desc" style="margin-top:16px;">Lokasi kantor untuk verifikasi GPS (geofencing) — peserta harus berada dalam radius ini supaya absen bisa tercatat.</p>
+            <div class="field-pair" style="margin-bottom:10px;">
+              <div><label>Latitude</label><input type="text" id="officeLat" placeholder="-6.970290"></div>
+              <div><label>Longitude</label><input type="text" id="officeLng" placeholder="110.424578"></div>
+            </div>
+            <div style="margin-bottom:10px;"><label for="officeRadius">Radius (meter)</label><input type="number" id="officeRadius" value="50" min="5"></div>
+            <button class="btn ghost" id="saveSettings">Simpan Pengaturan</button>
           </div>
-          <div id="izinPendingList"><div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div></div>
-        </div>
 
-        <div class="side-card">
-          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
-          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
-          <table>
-            <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>
-            <tbody id="logBody"><tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr></tbody>
-          </table>
-        </div>
-
-        <div class="side-card">
-          <h2>Kelola Peserta</h2>
-          <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka. Admin juga bisa menandai pulang manual kalau peserta lupa scan.</p>
-          <div class="field-pair" style="margin-bottom:10px;">
-            <input type="text" id="newNama" placeholder="Nama">
-            <input type="text" id="newNim" placeholder="NIM / ID">
+          <div class="side-card">
+            <h2>Akun Saya</h2>
+            <p class="desc">Ganti username / password akun admin yang sedang login.</p>
+            <div class="field-pair" style="margin-bottom:10px;">
+              <div><label>Username baru</label><input type="text" id="newAdminUser" placeholder="admin"></div>
+              <div><label>Password baru</label><input type="password" id="newAdminPass" placeholder="min. 4 karakter"></div>
+            </div>
+            <button class="btn ghost" id="saveCredentials">Ganti Kredensial</button>
+            <div id="credentialMsg"></div>
           </div>
-          <input type="text" id="newAsalKampus" placeholder="Asal Sekolah / Kampus" style="margin-bottom:10px;">
-          <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
-          <div id="rosterList"></div>
         </div>
       </div>
+
     </div>
   </div>
 
