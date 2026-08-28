@@ -1,12 +1,18 @@
 {
   "name": "presensi-magang",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Absensi peserta magang berbasis QR code — kartu QR permanen per peserta, kiosk scan admin, riwayat kehadiran peserta, dengan penyimpanan MongoDB Atlas.",
+  "description": "Absensi peserta magang berbasis QR code — kartu QR permanen per peserta, kiosk scan admin, riwayat kehadiran peserta, dengan penyimpanan MongoDB Atlas. Server Express, dijalankan sebagai proses Node.js persisten (bukan serverless).",
   "engines": {
     "node": ">=18"
   },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.4.5",
     "mongodb": "^6.10.0",
     "bcryptjs": "^2.4.3"
   }

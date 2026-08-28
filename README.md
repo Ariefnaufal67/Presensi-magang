@@ -59,7 +59,7 @@ tersimpan di setiap entri kehadiran) untuk ditelusuri manual kalau dicurigai.
 
 ```
 public/index.html       halaman aplikasi (login, kartu peserta, kiosk admin)
-api/[...route].js        satu serverless function untuk semua endpoint API
+server.js                entry point Express — semua route API + static file server + jadwal cron
 lib/db.js                 koneksi MongoDB (dengan connection caching)
 lib/store.js              semua query database (roster, settings, admin,
                            absensi, izin, statistik)
@@ -67,7 +67,7 @@ data/seed.json             data awal — dipakai SEKALI saat database masih koso
 .env.example               contoh environment variable untuk lokal
 ```
 
-Koleksi MongoDB yang dipakai: `roster`, `settings`, `admins`, `attendance`, `izin`.
+Koleksi MongoDB yang dipakai: `roster`, `settings`, `admins`, `attendance`, `izin`, `session`.
 
 ## Setup database (MongoDB Atlas — gratis)
 
@@ -76,8 +76,8 @@ Koleksi MongoDB yang dipakai: `roster`, `settings`, `admins`, `attendance`, `izi
 3. Di menu **Database Access**, buat database user (username & password) —
    catat kredensialnya.
 4. Di menu **Network Access**, klik **Add IP Address** → pilih
-   **Allow Access from Anywhere** (`0.0.0.0/0`). Ini perlu karena Vercel
-   memakai IP dinamis untuk serverless function.
+   **Allow Access from Anywhere** (`0.0.0.0/0`). Ini perlu karena Render
+   (atau host lain) bisa memakai IP yang berubah-ubah.
 5. Di halaman cluster, klik **Connect** → **Drivers** → salin
    *connection string*-nya, bentuknya seperti:
    ```
@@ -85,35 +85,32 @@ Koleksi MongoDB yang dipakai: `roster`, `settings`, `admins`, `attendance`, `izi
    ```
 6. Ganti `USERNAME` dan `PASSWORD` dengan kredensial dari langkah 3.
 
-## Setup environment variable di Vercel
+## Deploy ke Render
 
-1. Buka project di dashboard Vercel → **Settings** → **Environment Variables**.
-2. Tambahkan:
-   - `MONGODB_URI` = connection string dari langkah di atas
+1. Push folder ini ke repo GitHub.
+2. Di [dashboard.render.com](https://dashboard.render.com) → **New** → **Web Service** → connect ke repo tersebut.
+3. Isi konfigurasi:
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+4. Di tab **Environment**, tambahkan environment variable:
+   - `MONGODB_URI` = connection string dari langkah setup database di atas
    - `MONGODB_DB` = `presensi_magang` (opsional, ini juga defaultnya)
-3. Redeploy project (Vercel akan otomatis redeploy kalau kamu push commit
-   baru, atau klik **Redeploy** manual di dashboard).
+5. Klik **Deploy**.
 
 Database & koleksinya akan **terisi otomatis** dari `data/seed.json` saat
 pertama kali ada request masuk ke aplikasi (tidak perlu import manual).
 
-## Cara deploy ke Vercel
+Server ini adalah proses Node.js **persisten** (bukan serverless) — jadwal
+"Pulang Otomatis" dijalankan langsung di dalam proses lewat `node-cron`
+(lihat `server.js`), dicek presisi tiap menit sesuai zona waktu Jakarta,
+tidak lagi bergantung pada layanan cron eksternal.
 
-**Opsi 1 — lewat CLI**
-```bash
-npm i -g vercel
-cd presensi-magang
-vercel
-```
-
-**Opsi 2 — lewat dashboard Vercel**
-1. Push folder ini ke repo GitHub/GitLab/Bitbucket.
-2. Di [vercel.com](https://vercel.com) → **Add New Project** → import repo tersebut.
-3. Isi environment variable `MONGODB_URI` (lihat bagian di atas) sebelum
-   klik **Deploy**, atau tambahkan sesudahnya lalu redeploy.
-
-Vercel otomatis menjalankan `npm install` untuk memasang dependency
-(`mongodb`, `bcryptjs`) — tidak perlu langkah build tambahan.
+**Catatan tier gratis Render**: web service gratis akan "tidur" setelah
+~15 menit tidak ada trafik, dan bangun lagi (cold start ~30–60 detik) saat
+ada request baru. Ini juga memengaruhi jadwal pulang otomatis — kalau
+server sedang tidur pas jam yang dijadwalkan, jadwalnya baru kecek begitu
+server bangun lagi. Kalau butuh presisi mutlak tanpa tidur, pertimbangkan
+upgrade ke paket berbayar Render, atau pakai VPS yang menyala 24/7.
 
 ## Login default
 
@@ -128,10 +125,12 @@ Vercel otomatis menjalankan `npm install` untuk memasang dependency
 cp .env.example .env
 # isi MONGODB_URI di .env dengan connection string kamu
 
-npm i -g vercel
 npm install
-vercel dev
+npm start
 ```
+
+Server akan jalan di `http://localhost:3000` (atau port lain lewat
+environment variable `PORT`).
 
 ## Catatan keamanan & pengembangan lanjutan
 
@@ -139,10 +138,11 @@ vercel dev
   teks biasa di database.
 - Belum ada rate-limiting di endpoint login — untuk produksi dengan
   trafik publik, pertimbangkan menambah pembatasan percobaan login.
-- Login belum memakai sesi/token (JWT) — status login hanya disimpan di
-  memori browser (JS), jadi refresh halaman = perlu login ulang. Kalau
-  perlu sesi yang bertahan setelah refresh, bisa ditambahkan
-  `httpOnly` cookie + token nanti.
+- Sesi login (admin & peserta) disimpan di `localStorage` browser supaya
+  bertahan setelah refresh halaman — bukan sesi server dengan token/JWT
+  sungguhan. Cukup untuk kebutuhan kiosk internship, tapi bukan tingkat
+  keamanan produksi publik.
 - Index unik `{pesertaId, tanggal}` di koleksi `attendance` mencegah satu
   peserta punya lebih dari satu entri absen di hari yang sama, meski ada
   banyak scan bersamaan.
+
