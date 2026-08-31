@@ -23,6 +23,7 @@
   let adminQrPollTimer = null;
   let adminQrLastToken = null;
   let pendingAbsenToken = null;
+  let pesertaPollTimer = null;
   const SESSION_KEY = 'presensi_session';
 
   // ---------- nav ----------
@@ -41,6 +42,8 @@
     hideAll();
     document.body.classList.remove('kiosk-mode');
     localStorage.removeItem(SESSION_KEY);
+    if(pesertaPollTimer){ clearInterval(pesertaPollTimer); pesertaPollTimer = null; }
+    if(adminQrPollTimer){ clearInterval(adminQrPollTimer); adminQrPollTimer = null; }
     currentPeserta = null; currentAdmin = null;
     whoRow.style.display = 'none';
     document.getElementById('loginNim').value='';
@@ -115,6 +118,13 @@
     initPesertaAbsen();
     loadHistory(currentPeserta.id);
     loadIzinRiwayat(currentPeserta.id);
+    if(pesertaPollTimer) clearInterval(pesertaPollTimer);
+    pesertaPollTimer = setInterval(()=>{
+      if(currentPeserta){
+        refreshHistorySilent(currentPeserta.id);
+        refreshIzinRiwayatSilent(currentPeserta.id);
+      }
+    }, 5000);
     const today = new Date();
     const minDate = new Date(today); minDate.setDate(minDate.getDate() - 3);
     document.getElementById('izinTanggal').min = minDate.toISOString().slice(0,10);
@@ -398,6 +408,10 @@
   async function loadHistory(pesertaId){
     const body = document.getElementById('historyBody');
     body.innerHTML = '<tr class="empty-row"><td colspan="4">Memuat riwayat…</td></tr>';
+    await refreshHistorySilent(pesertaId);
+  }
+  async function refreshHistorySilent(pesertaId){
+    const body = document.getElementById('historyBody');
     const { ok, data } = await api('/api/history?pesertaId=' + encodeURIComponent(pesertaId));
     if(!ok || !data.history || data.history.length===0){
       body.innerHTML = '<tr class="empty-row"><td colspan="4">Belum ada riwayat kehadiran.</td></tr>';
@@ -515,6 +529,10 @@
   async function loadIzinRiwayat(pesertaId){
     const el = document.getElementById('izinRiwayatList');
     el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Memuat…</div>';
+    await refreshIzinRiwayatSilent(pesertaId);
+  }
+  async function refreshIzinRiwayatSilent(pesertaId){
+    const el = document.getElementById('izinRiwayatList');
     const { ok, data } = await api('/api/izin?pesertaId=' + encodeURIComponent(pesertaId));
     if(!ok || !data.izin || data.izin.length===0){
       el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada pengajuan izin.</div>';
