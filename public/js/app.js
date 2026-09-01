@@ -593,27 +593,40 @@
     document.getElementById('statPersenTepatTop').textContent = data.ringkasan.persenTepatWaktu===null ? '–' : data.ringkasan.persenTepatWaktu + '%';
 
     const labels = data.daily.map(d => new Date(d.tanggal+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short'}));
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    if(statsChartInstance) statsChartInstance.destroy();
-    statsChartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label:'Tepat waktu', data:data.daily.map(d=>d.tepat), backgroundColor:'#5C7A34', stack:'s' },
-          { label:'Terlambat', data:data.daily.map(d=>d.terlambat), backgroundColor:'#8A3F2C', stack:'s' },
-          { label:'Izin/Sakit/Cuti', data:data.daily.map(d=>d.izin), backgroundColor:'#C98A1F', stack:'s' }
-        ]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        scales:{
-          x:{ stacked:true, ticks:{ color:'#8A6F52', font:{size:10} }, grid:{ display:false } },
-          y:{ stacked:true, beginAtZero:true, ticks:{ color:'#8A6F52', font:{size:10}, precision:0 }, grid:{ color:'#DEC49A' } }
+    const tepatData = data.daily.map(d=>d.tepat);
+    const terlambatData = data.daily.map(d=>d.terlambat);
+    const izinData = data.daily.map(d=>d.izin);
+
+    if(statsChartInstance){
+      // Update data grafik yang sudah ada, bukan hancur-buat-ulang — supaya
+      // tidak nge-flicker/animasi ulang tiap kali di-refresh otomatis.
+      statsChartInstance.data.labels = labels;
+      statsChartInstance.data.datasets[0].data = tepatData;
+      statsChartInstance.data.datasets[1].data = terlambatData;
+      statsChartInstance.data.datasets[2].data = izinData;
+      statsChartInstance.update();
+    } else {
+      const ctx = document.getElementById('statsChart').getContext('2d');
+      statsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label:'Tepat waktu', data:tepatData, backgroundColor:'#5C7A34', stack:'s' },
+            { label:'Terlambat', data:terlambatData, backgroundColor:'#8A3F2C', stack:'s' },
+            { label:'Izin/Sakit/Cuti', data:izinData, backgroundColor:'#C98A1F', stack:'s' }
+          ]
         },
-        plugins:{ legend:{ labels:{ color:'#8A6F52', font:{size:10.5}, boxWidth:10, padding:10 } } }
-      }
-    });
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales:{
+            x:{ stacked:true, ticks:{ color:'#8A6F52', font:{size:10} }, grid:{ display:false } },
+            y:{ stacked:true, beginAtZero:true, ticks:{ color:'#8A6F52', font:{size:10}, precision:0 }, grid:{ color:'#DEC49A' } }
+          },
+          plugins:{ legend:{ labels:{ color:'#8A6F52', font:{size:10.5}, boxWidth:10, padding:10 } } }
+        }
+      });
+    }
 
     const rankEl = document.getElementById('statsPeringkat');
     if(!data.peringkat.length){
@@ -950,6 +963,7 @@
   let lastKnownLogCount = 0;
   let lastKnownLogSnapshot = '';
   let izinPollCounter = 0;
+  let statsPollCounter = 0;
 
   function formatCountdown(sec){
     if(sec >= 60){
@@ -986,12 +1000,18 @@
       izinPollCounter = 0;
       await refreshIzinPending();
     }
+    statsPollCounter++;
+    if(statsPollCounter >= 10){ // cek statistik & grafik kehadiran tiap ~10 detik
+      statsPollCounter = 0;
+      await refreshStats();
+    }
   }
 
   function startAdminQrPolling(){
     adminQrLastToken = null;
     lastKnownLogSnapshot = '';
     izinPollCounter = 0;
+    statsPollCounter = 0;
     pollAdminQr();
     if(adminQrPollTimer) clearInterval(adminQrPollTimer);
     adminQrPollTimer = setInterval(pollAdminQr, 1000);
