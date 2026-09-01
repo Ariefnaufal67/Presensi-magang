@@ -55,6 +55,7 @@
   }
   document.getElementById('logoutBtn').addEventListener('click', goLogin);
   document.getElementById('logoutBtnSidebar').addEventListener('click', goLogin);
+  document.getElementById('kioskLogoutBtnTop').addEventListener('click', goLogin);
 
   // ---------- kiosk sidebar page switching ----------
   document.querySelectorAll('.kiosk-nav-item').forEach(btn=>{
