@@ -148,10 +148,12 @@
       <div class="side-card">
         <h2>Riwayat Kehadiran</h2>
         <p class="desc">Rekap jam masuk & pulangmu, biar tahu hari ini atau hari-hari sebelumnya kamu tepat waktu atau terlambat.</p>
+        <div class="table-scroll">
         <table>
           <thead><tr><th>Tanggal</th><th>Masuk</th><th>Status</th><th>Pulang</th></tr></thead>
           <tbody id="historyBody"><tr class="empty-row"><td colspan="4">Memuat riwayat…</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
@@ -211,7 +213,22 @@
       </div>
     </aside>
 
+    <div class="kiosk-backdrop" id="kioskBackdrop"></div>
+
     <div class="kiosk-main">
+
+      <div class="kiosk-mobile-topbar">
+        <button class="kiosk-menu-btn" id="kioskMenuBtn" aria-label="Buka menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="brand" style="gap:8px;">
+          <div class="brand-mark" style="width:28px;height:28px;">
+            <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><rect x="4" y="3" width="16" height="18" rx="3" stroke="#FDF6EC" stroke-width="2"/><circle cx="12" cy="10" r="2.4" stroke="#FDF6EC" stroke-width="2"/><path d="M8 17h8" stroke="#FDF6EC" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="brand-name" style="font-size:14px;">Presensi</div>
+        </div>
+        <div class="kiosk-menu-spacer"></div>
+      </div>
 
       <!-- PAGE: Dashboard -->
       <div class="kiosk-page active" data-page="dashboard">
@@ -285,10 +302,12 @@
         <div class="side-card kiosk-page-narrow" style="max-width:none;">
           <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
           <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <div class="table-scroll">
           <table>
             <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>
             <tbody id="logBody"><tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr></tbody>
           </table>
+          </div>
         </div>
       </div>
 

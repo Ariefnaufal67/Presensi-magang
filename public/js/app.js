@@ -63,8 +63,27 @@
       document.querySelectorAll('.kiosk-page').forEach(p=>p.classList.remove('active'));
       btn.classList.add('active');
       document.querySelector(`.kiosk-page[data-page="${btn.dataset.page}"]`).classList.add('active');
+      closeKioskSidebar();
     });
   });
+
+  // ---------- kiosk sidebar: mobile off-canvas toggle ----------
+  const kioskSidebarEl = document.querySelector('.kiosk-sidebar');
+  const kioskBackdropEl = document.getElementById('kioskBackdrop');
+  const kioskMenuBtn = document.getElementById('kioskMenuBtn');
+  function openKioskSidebar(){
+    if(!kioskSidebarEl) return;
+    kioskSidebarEl.classList.add('open');
+    kioskBackdropEl && kioskBackdropEl.classList.add('show');
+  }
+  function closeKioskSidebar(){
+    if(!kioskSidebarEl) return;
+    kioskSidebarEl.classList.remove('open');
+    kioskBackdropEl && kioskBackdropEl.classList.remove('show');
+  }
+  kioskMenuBtn && kioskMenuBtn.addEventListener('click', openKioskSidebar);
+  kioskBackdropEl && kioskBackdropEl.addEventListener('click', closeKioskSidebar);
+  window.addEventListener('resize', ()=>{ if(window.innerWidth > 880) closeKioskSidebar(); });
 
   // ---------- login mode toggle ----------
   document.querySelectorAll('.segmented button').forEach(btn=>{
