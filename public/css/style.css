@@ -182,7 +182,7 @@ body.kiosk-mode .topbar{display:none;}
 .kiosk-nav-item.active{background:var(--lime);color:var(--ink-on-accent);}
 .kiosk-nav-item svg{flex-shrink:0;width:18px;height:18px;}
 .kiosk-nav-item .idcard-tag{margin-left:auto;}
-.kiosk-sidebar-profile{display:flex;align-items:center;gap:10px;padding:12px 6px 4px;border-top:1px solid var(--line);margin-top:10px;}
+.kiosk-sidebar-profile{display:flex;align-items:center;gap:10px;padding:12px 6px 4px;border-top:1px solid var(--line);margin-top:10px;position:sticky;bottom:0;background:var(--surface);}
 .kiosk-profile-avatar{width:34px;height:34px;border-radius:50%;background:var(--lime);color:var(--ink-on-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Outfit';flex-shrink:0;font-size:13px;}
 .kiosk-profile-info{min-width:0;flex:1;}
 .kiosk-profile-name{font-size:12.5px;font-weight:700;}
@@ -222,7 +222,7 @@ body.kiosk-mode .topbar{display:none;}
 @media (max-width:880px){
   html,body{overflow-x:hidden;}
   #view-kiosk.active{display:block;min-height:100vh;}
-  .kiosk-sidebar{
+.kiosk-sidebar{
     position:fixed;top:0;left:0;height:100vh;height:100dvh;width:250px;max-width:80vw;
     z-index:60;transform:translateX(-100%);transition:transform .25s ease;
     box-shadow:var(--shadow);

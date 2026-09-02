@@ -55,7 +55,6 @@
   }
   document.getElementById('logoutBtn').addEventListener('click', goLogin);
   document.getElementById('logoutBtnSidebar').addEventListener('click', goLogin);
-  document.getElementById('kioskLogoutBtnTop').addEventListener('click', goLogin);
 
   // ---------- kiosk sidebar page switching ----------
   document.querySelectorAll('.kiosk-nav-item').forEach(btn=>{
@@ -808,23 +807,6 @@
 
       const actions = document.createElement('div');
       actions.className = 'roster-actions';
-
-      const markBtn = document.createElement('button');
-      markBtn.className = 'mini-btn';
-      markBtn.textContent = 'Tandai Pulang';
-      markBtn.title = 'Tandai pulang manual (tanpa scan)';
-      markBtn.addEventListener('click', async ()=>{
-        const { ok, data } = await api('/api/mark-pulang', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ pesertaId: p.id })
-        });
-        if(ok && data.ok){
-          await refreshToday();
-        } else {
-          alert((data && data.message) || 'Gagal menandai pulang.');
-        }
-      });
-      actions.appendChild(markBtn);
 
       const del = document.createElement('button');
       del.className='icon-btn'; del.textContent='✕'; del.title='Hapus peserta';
