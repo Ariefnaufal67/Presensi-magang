@@ -609,8 +609,8 @@
       document.getElementById('jamPulangOtomatis').value = s.data.jamPulangOtomatis || '17:00';
       document.getElementById('pulangOtomatisAktif').value = String(!!s.data.pulangOtomatisAktif);
     }
-    await fetchAndApplyToday();
     await refreshRoster();
+    await fetchAndApplyToday();
     await refreshIzinPending();
     await refreshStats();
     await refreshAdminList();
@@ -819,20 +819,16 @@
       body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas pada tanggal ini.</td></tr>';
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
-        const rows = [];
         if(r.sumber === 'izin'){
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td><span class="pill dash">disetujui admin</span></td><td><span class="pill dash">—</span></td></tr>`);
-          return rows.join('');
+          return `<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td>—</td></tr>`;
         }
         const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
         const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
-        if(r.jamPulang){
-          const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${statusPill}</td><td class="mono">${jarakPulang}</td></tr>`);
-        } else {
-          rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td>${statusPill}</td><td class="mono">${jarakMasuk}</td></tr>`);
-        }
-        return rows.join('');
+        const pulangCell = r.jamPulang
+          ? `${r.jamPulang}`
+          : '<span class="pill dash">—</span>';
+        const titleAttr = r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? ' title="Pola sinyal GPS tidak wajar saat masuk — kemungkinan lokasi palsu, tinjau manual"' : '';
+        return `<tr${titleAttr}><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td class="mono">${pulangCell}</td><td>${statusPill}</td><td class="mono">${jarakMasuk}</td></tr>`;
       }).join('');
     }
     const hadir = log.filter(r=>r.sumber !== 'izin');
