@@ -160,6 +160,7 @@
     document.getElementById('badgeGreeting').textContent = 'Halo, ' + currentPeserta.nama;
     viewBadge.classList.add('active');
     localStorage.setItem(SESSION_KEY, JSON.stringify({ role:'peserta', data: peserta }));
+    showAlasanTerlambatBox(false);
     initPesertaAbsen();
     loadHistory(currentPeserta.id);
     loadIzinRiwayat(currentPeserta.id);
@@ -426,9 +427,11 @@
     });
     if(ok && data.ok){
       showPesertaResult(data.peserta, data.message, data.jenis);
+      showAlasanTerlambatBox(data.jenis === 'Masuk' && data.status === 'Terlambat');
       loadHistory(currentPeserta.id);
     } else {
       showPesertaResult(data.peserta || null, data.message || 'Absen gagal, coba lagi.', null);
+      showAlasanTerlambatBox(false);
     }
     pesertaBusy = false;
     pendingAbsenToken = null;
@@ -449,6 +452,42 @@
       : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
     setTimeout(()=>banner.classList.remove('show'), 6000);
   }
+
+  function showAlasanTerlambatBox(show){
+    const box = document.getElementById('alasanTerlambatBox');
+    if(!box) return;
+    box.style.display = show ? 'block' : 'none';
+    if(show){
+      document.getElementById('alasanTerlambatInput').value = '';
+      document.getElementById('alasanTerlambatInput').disabled = false;
+      document.getElementById('submitAlasanTerlambat').disabled = false;
+      document.getElementById('alasanTerlambatMsg').textContent = '';
+    }
+  }
+
+  document.getElementById('submitAlasanTerlambat').addEventListener('click', async ()=>{
+    const alasan = document.getElementById('alasanTerlambatInput').value.trim();
+    const msgEl = document.getElementById('alasanTerlambatMsg');
+    if(!alasan){
+      msgEl.style.color = 'var(--coral)';
+      msgEl.textContent = 'Tulis alasannya dulu, ya.';
+      return;
+    }
+    if(!currentPeserta) return;
+    const { ok, data } = await api('/api/alasan-terlambat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ pesertaId: currentPeserta.id, alasan })
+    });
+    if(ok && data.ok){
+      msgEl.style.color = 'var(--green)';
+      msgEl.textContent = 'Alasan terkirim, terima kasih.';
+      document.getElementById('alasanTerlambatInput').disabled = true;
+      document.getElementById('submitAlasanTerlambat').disabled = true;
+    } else {
+      msgEl.style.color = 'var(--coral)';
+      msgEl.textContent = (data && data.message) || 'Gagal mengirim alasan, coba lagi.';
+    }
+  });
 
   async function loadHistory(pesertaId){
     const body = document.getElementById('historyBody');
@@ -823,7 +862,10 @@
           return `<tr><td>${escapeHtml(r.nama)}</td><td class="mono">—</td><td class="mono">—</td><td><span class="pill izin">${escapeHtml(r.statusMasuk)}</span></td><td>—</td></tr>`;
         }
         const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
-        const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
+        const alasanLine = r.statusMasuk === 'Terlambat' && r.alasanTerlambat
+          ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:3px;max-width:220px;">💬 ${escapeHtml(r.alasanTerlambat)}</div>`
+          : '';
+        const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>${alasanLine}`;
         const pulangCell = r.jamPulang
           ? `${r.jamPulang}`
           : '<span class="pill dash">—</span>';

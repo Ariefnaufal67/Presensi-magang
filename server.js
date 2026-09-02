@@ -186,6 +186,13 @@ app.post('/api/mark-pulang', wrap(async (req, res) => {
   res.status(result.ok ? 200 : 400).json(result);
 }));
 
+// ---------- alasan keterlambatan (dari peserta, hanya untuk absen hari ini) ----------
+app.post('/api/alasan-terlambat', wrap(async (req, res) => {
+  const { pesertaId, alasan } = req.body || {};
+  const result = await store.simpanAlasanTerlambat({ pesertaId, alasan });
+  res.status(result.ok ? 200 : 400).json(result);
+}));
+
 // ---------- pulang otomatis: tombol "Jalankan Sekarang" di admin ----------
 // (Trigger jadwal harian sekarang ditangani node-cron di bawah, bukan lagi
 // lewat endpoint publik + CRON_SECRET seperti versi Vercel — lihat blok
