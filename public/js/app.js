@@ -24,6 +24,7 @@
   let adminQrLastToken = null;
   let pendingAbsenToken = null;
   let pesertaPollTimer = null;
+  let rosterCache = [];
   const SESSION_KEY = 'presensi_session';
 
   // ---------- nav ----------
@@ -55,7 +56,6 @@
   }
   document.getElementById('logoutBtn').addEventListener('click', goLogin);
   document.getElementById('logoutBtnSidebar').addEventListener('click', goLogin);
-  document.getElementById('kioskLogoutBtnTop').addEventListener('click', goLogin);
 
   // ---------- kiosk sidebar page switching ----------
   document.querySelectorAll('.kiosk-nav-item').forEach(btn=>{
@@ -85,6 +85,31 @@
   kioskMenuBtn && kioskMenuBtn.addEventListener('click', openKioskSidebar);
   kioskBackdropEl && kioskBackdropEl.addEventListener('click', closeKioskSidebar);
   window.addEventListener('resize', ()=>{ if(window.innerWidth > 880) closeKioskSidebar(); });
+
+  // ---------- log harian: date picker ----------
+  function jakartaTodayKey(){
+    const jakarta = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const y = jakarta.getFullYear();
+    const m = String(jakarta.getMonth()+1).padStart(2,'0');
+    const d = String(jakarta.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  const logTanggalPicker = document.getElementById('logTanggalPicker');
+  const logTanggalHariIniBtn = document.getElementById('logTanggalHariIniBtn');
+  if(logTanggalPicker){
+    const todayTk = jakartaTodayKey();
+    logTanggalPicker.max = todayTk;
+    logTanggalPicker.value = todayTk;
+    logTanggalPicker.addEventListener('change', ()=>{
+      if(logTanggalPicker.value) viewLogDate(logTanggalPicker.value);
+    });
+  }
+  logTanggalHariIniBtn && logTanggalHariIniBtn.addEventListener('click', ()=>{
+    logViewingDate = null;
+    const todayTk = jakartaTodayKey();
+    if(logTanggalPicker) logTanggalPicker.value = todayTk;
+    fetchAndApplyToday();
+  });
 
   // ---------- login mode toggle ----------
   document.querySelectorAll('.segmented button').forEach(btn=>{
@@ -152,17 +177,17 @@
     resetIzinBuktiInput();
   }
   document.getElementById('submitPesertaLogin').addEventListener('click', async ()=>{
-    const id = document.getElementById('loginNim').value.trim();
+    const nim = document.getElementById('loginNim').value.trim();
     const err = document.getElementById('pesertaLoginError');
     err.innerHTML = '';
     const { ok, data } = await api('/api/login', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ role:'peserta', id })
+      body: JSON.stringify({ role:'peserta', nim })
     });
     if(ok && data.ok){
       enterPesertaSession(data.peserta);
     } else {
-      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'ID tidak ditemukan.')}</div>`;
+      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
     }
   });
 
@@ -584,7 +609,7 @@
       document.getElementById('jamPulangOtomatis').value = s.data.jamPulangOtomatis || '17:00';
       document.getElementById('pulangOtomatisAktif').value = String(!!s.data.pulangOtomatisAktif);
     }
-    await refreshToday();
+    await fetchAndApplyToday();
     await refreshRoster();
     await refreshIzinPending();
     await refreshStats();
@@ -720,7 +745,7 @@
           });
           if(ok && data.ok){
             await refreshIzinPending();
-            await refreshToday();
+            await fetchAndApplyToday();
           } else {
             alert((data && data.message) || 'Gagal menyetujui izin.');
           }
@@ -750,17 +775,48 @@
     });
   }
 
-  async function refreshToday(){
+  let logViewingDate = null; // tanggal yang sedang dilihat di halaman Log Harian; null = ikuti hari ini (live)
+
+  function applyDashboardCounts(log){
+    const hadir = (log||[]).filter(r=>r.sumber !== 'izin');
+    const statMasukEl = document.getElementById('statMasuk');
+    const statPulangEl = document.getElementById('statPulang');
+    if(statMasukEl) statMasukEl.textContent = hadir.length;
+    if(statPulangEl) statPulangEl.textContent = hadir.filter(r=>r.jamPulang).length;
+  }
+
+  function renderLogTable(tanggal, log){
+    document.getElementById('tanggalHariIni').textContent = formatTanggal(tanggal);
+    const picker = document.getElementById('logTanggalPicker');
+    if(picker && picker.value !== tanggal) picker.value = tanggal;
+    renderLog(log || []);
+  }
+
+  // Dipanggil tiap detik lewat polling (live) — selalu memperbarui kartu ringkasan
+  // dashboard dari data HARI INI, dan hanya menimpa tabel Log Harian kalau admin
+  // memang sedang melihat hari ini (bukan tanggal lampau yang dipilih manual).
+  async function fetchAndApplyToday(){
     const { ok, data } = await api('/api/today');
     if(!ok) return;
-    document.getElementById('tanggalHariIni').textContent = formatTanggal(data.tanggal);
-    renderLog(data.log || []);
+    applyDashboardCounts(data.log || []);
     announceLatestActivity(data.log || []);
+    if(!logViewingDate || logViewingDate === data.tanggal){
+      renderLogTable(data.tanggal, data.log || []);
+    }
   }
+
+  // Dipanggil saat admin memilih tanggal secara manual di halaman Log Harian.
+  async function viewLogDate(tanggal){
+    logViewingDate = tanggal;
+    const { ok, data } = await api('/api/today?tanggal=' + encodeURIComponent(tanggal));
+    if(!ok) return;
+    renderLogTable(data.tanggal, data.log || []);
+  }
+
   function renderLog(log){
     const body = document.getElementById('logBody');
     if(log.length===0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas scan hari ini.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas pada tanggal ini.</td></tr>';
     } else {
       body.innerHTML = log.slice().reverse().map(r=>{
         const rows = [];
@@ -769,19 +825,29 @@
           return rows.join('');
         }
         const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
-        rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
+        const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
         if(r.jamPulang){
           const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${statusPill}</td><td class="mono">${jarakPulang}</td></tr>`);
+        } else {
+          rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td>${statusPill}</td><td class="mono">${jarakMasuk}</td></tr>`);
         }
         return rows.join('');
       }).join('');
     }
     const hadir = log.filter(r=>r.sumber !== 'izin');
+    const izin = log.filter(r=>r.sumber === 'izin');
     const masuk = hadir.length;
-    const pulang = hadir.filter(r=>r.jamPulang).length;
-    document.getElementById('statMasuk').textContent = masuk;
-    document.getElementById('statPulang').textContent = pulang;
+    const tepat = hadir.filter(r=>r.statusMasuk === 'Tepat waktu').length;
+    const terlambat = hadir.filter(r=>r.statusMasuk && r.statusMasuk !== 'Tepat waktu').length;
+    const sumTepat = document.getElementById('logSumTepat');
+    if(sumTepat){
+      sumTepat.textContent = tepat;
+      document.getElementById('logSumTerlambat').textContent = terlambat;
+      document.getElementById('logSumIzin').textContent = izin.length;
+      const belum = Math.max(rosterCache.length - masuk - izin.length, 0);
+      document.getElementById('logSumBelum').textContent = rosterCache.length ? belum : '—';
+    }
   }
 
   async function refreshRoster(){
@@ -790,6 +856,7 @@
     renderRoster(data.roster || []);
   }
   function renderRoster(roster){
+    rosterCache = roster || [];
     const el = document.getElementById('rosterList');
     if(roster.length===0){
       el.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Belum ada peserta terdaftar.</div>';
@@ -803,28 +870,12 @@
       const left = document.createElement('div');
       left.className = 'roster-left';
       const asalLine = p.asalKampus && p.asalKampus !== '-' ? `<span class="nim">${escapeHtml(p.asalKampus)}</span>` : '';
-      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id}</span>${asalLine}`;
+      const nimLine = p.nim && p.nim !== '-' ? ` · ${escapeHtml(p.nim)}` : '';
+      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id}${nimLine}</span>${asalLine}`;
       row.appendChild(left);
 
       const actions = document.createElement('div');
       actions.className = 'roster-actions';
-
-      const markBtn = document.createElement('button');
-      markBtn.className = 'mini-btn';
-      markBtn.textContent = 'Tandai Pulang';
-      markBtn.title = 'Tandai pulang manual (tanpa scan)';
-      markBtn.addEventListener('click', async ()=>{
-        const { ok, data } = await api('/api/mark-pulang', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ pesertaId: p.id })
-        });
-        if(ok && data.ok){
-          await refreshToday();
-        } else {
-          alert((data && data.message) || 'Gagal menandai pulang.');
-        }
-      });
-      actions.appendChild(markBtn);
 
       const del = document.createElement('button');
       del.className='icon-btn'; del.textContent='✕'; del.title='Hapus peserta';
@@ -892,7 +943,7 @@
       msg.textContent = data.jumlah > 0
         ? `Berhasil: ${data.jumlah} peserta ditandai pulang jam ${data.waktu} (${data.peserta.join(', ')}).`
         : 'Tidak ada peserta yang perlu ditandai pulang saat ini.';
-      await refreshToday();
+      await fetchAndApplyToday();
     } else {
       msg.className = 'msg-err';
       msg.textContent = (data && data.message) || 'Gagal menjalankan pulang otomatis.';
@@ -1013,7 +1064,7 @@
       ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/QR_SESSION_SECONDS);
     }
     document.getElementById('countdownBadge').textContent = 'refresh dalam ' + formatCountdown(remaining);
-    await refreshToday();
+    await fetchAndApplyToday();
     izinPollCounter++;
     if(izinPollCounter >= 5){ // cek pengajuan izin baru tiap ~5 detik, bukan tiap detik
       izinPollCounter = 0;
