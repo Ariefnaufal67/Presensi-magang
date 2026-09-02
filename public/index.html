@@ -300,8 +300,24 @@
       <!-- PAGE: Log Harian -->
       <div class="kiosk-page" data-page="log">
         <div class="side-card kiosk-page-narrow" style="max-width:none;">
-          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
-          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h2 style="margin-bottom:4px;">Log Harian — <span id="tanggalHariIni"></span></h2>
+              <p class="desc" style="margin:0;">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="date" id="logTanggalPicker" style="width:auto;">
+              <button class="mini-btn" id="logTanggalHariIniBtn" style="padding:9px 12px;">Hari Ini</button>
+            </div>
+          </div>
+
+          <div class="metric-row" id="logSummaryRow" style="margin:16px 0;">
+            <div class="metric-card"><div class="metric-num" id="logSumTepat">—</div><div class="metric-label">Tepat waktu</div></div>
+            <div class="metric-card"><div class="metric-num" id="logSumTerlambat">—</div><div class="metric-label">Terlambat</div></div>
+            <div class="metric-card"><div class="metric-num" id="logSumIzin">—</div><div class="metric-label">Izin/Sakit/Cuti</div></div>
+            <div class="metric-card"><div class="metric-num" id="logSumBelum">—</div><div class="metric-label">Belum absen</div></div>
+          </div>
+
           <div class="table-scroll">
           <table>
             <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>

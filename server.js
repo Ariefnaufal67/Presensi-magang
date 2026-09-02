@@ -195,9 +195,9 @@ app.post('/api/auto-pulang', wrap(async (req, res) => {
   res.status(200).json(result);
 }));
 
-// ---------- today ----------
+// ---------- today / log per tanggal ----------
 app.get('/api/today', wrap(async (req, res) => {
-  const data = await store.getTodayLog();
+  const data = await store.getTodayLog(req.query.tanggal);
   res.status(200).json(data);
 }));
 
