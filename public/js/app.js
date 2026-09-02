@@ -825,12 +825,10 @@
           return rows.join('');
         }
         const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
-        const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
+        rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
         if(r.jamPulang){
           const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${statusPill}</td><td class="mono">${jarakPulang}</td></tr>`);
-        } else {
-          rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td>${statusPill}</td><td class="mono">${jarakMasuk}</td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
         }
         return rows.join('');
       }).join('');
