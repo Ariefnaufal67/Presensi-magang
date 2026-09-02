@@ -38,7 +38,7 @@ function wrap(fn) {
 
 // ---------- login ----------
 app.post('/api/login', wrap(async (req, res) => {
-  const { role, username, password, nim } = req.body || {};
+  const { role, username, password, id } = req.body || {};
 
   if (role === 'admin') {
     const valid = await store.verifyAdmin(username, password);
@@ -51,11 +51,11 @@ app.post('/api/login', wrap(async (req, res) => {
   }
 
   if (role === 'peserta') {
-    const p = await store.findPeserta(nim);
+    const p = await store.findPeserta(id);
     if (p) {
       res.status(200).json({ ok: true, peserta: p });
     } else {
-      res.status(404).json({ ok: false, message: 'NIM / ID tidak ditemukan. Hubungi admin.' });
+      res.status(404).json({ ok: false, message: 'ID tidak ditemukan. Hubungi admin.' });
     }
     return;
   }
@@ -70,12 +70,12 @@ app.get('/api/roster', wrap(async (req, res) => {
 }));
 
 app.post('/api/roster', wrap(async (req, res) => {
-  const { nama, nim, asalKampus } = req.body || {};
+  const { nama, asalKampus } = req.body || {};
   if (!nama || !String(nama).trim()) {
     res.status(400).json({ ok: false, message: 'Nama wajib diisi.' });
     return;
   }
-  const item = await store.addPeserta(nama, nim, asalKampus);
+  const item = await store.addPeserta(nama, asalKampus);
   const roster = await store.getRoster();
   res.status(200).json({ ok: true, peserta: item, roster });
 }));
@@ -195,9 +195,9 @@ app.post('/api/auto-pulang', wrap(async (req, res) => {
   res.status(200).json(result);
 }));
 
-// ---------- today / log per tanggal ----------
+// ---------- today ----------
 app.get('/api/today', wrap(async (req, res) => {
-  const data = await store.getTodayLog(req.query.tanggal);
+  const data = await store.getTodayLog();
   res.status(200).json(data);
 }));
 

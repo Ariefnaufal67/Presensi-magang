@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
 
 // ---------- login ----------
 async function handleLogin(req, res) {
-  const { role, username, password, nim } = req.body || {};
+  const { role, username, password, id } = req.body || {};
 
   if (role === 'admin') {
     const valid = await store.verifyAdmin(username, password);
@@ -57,11 +57,11 @@ async function handleLogin(req, res) {
   }
 
   if (role === 'peserta') {
-    const p = await store.findPeserta(nim);
+    const p = await store.findPeserta(id);
     if (p) {
       res.status(200).json({ ok: true, peserta: p });
     } else {
-      res.status(404).json({ ok: false, message: 'NIM / ID tidak ditemukan. Hubungi admin.' });
+      res.status(404).json({ ok: false, message: 'ID tidak ditemukan. Hubungi admin.' });
     }
     return;
   }
@@ -78,12 +78,12 @@ async function handleRoster(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { nama, nim, asalKampus } = req.body || {};
+    const { nama, asalKampus } = req.body || {};
     if (!nama || !String(nama).trim()) {
       res.status(400).json({ ok: false, message: 'Nama wajib diisi.' });
       return;
     }
-    const item = await store.addPeserta(nama, nim, asalKampus);
+    const item = await store.addPeserta(nama, asalKampus);
     const roster = await store.getRoster();
     res.status(200).json({ ok: true, peserta: item, roster });
     return;

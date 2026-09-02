@@ -36,7 +36,7 @@
       <div class="login-hero">
         <div class="eyebrow">Presensi Magang · QR</div>
         <h1>Masuk untuk melanjutkan</h1>
-        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM atau ID untuk melihat kartu QR & riwayat kehadirannya.</p>
+        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan ID untuk melihat kartu QR & riwayat kehadirannya.</p>
       </div>
       <div class="segmented">
         <button data-mode="peserta" class="active">Peserta Magang</button>
@@ -44,8 +44,8 @@
       </div>
 
       <div class="picker" id="formPeserta">
-        <label>NIM / ID</label>
-        <input type="text" id="loginNim" placeholder="NIM, atau ID dari admin (mis. PST-1234)" class="mono" style="margin-bottom:16px;">
+        <label>ID Peserta</label>
+        <input type="text" id="loginNim" placeholder="mis. PST-1001" class="mono" style="margin-bottom:16px;">
         <button class="btn" id="submitPesertaLogin">Masuk</button>
         <div id="pesertaLoginError"></div>
         <p class="login-hint">Belum terdaftar? Minta admin menambahkanmu lewat menu "Kelola Peserta".</p>
@@ -227,7 +227,9 @@
           </div>
           <div class="brand-name" style="font-size:14px;">Presensi</div>
         </div>
-        <div class="kiosk-menu-spacer"></div>
+        <button class="kiosk-menu-btn" id="kioskLogoutBtnTop" aria-label="Keluar" title="Keluar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
       </div>
 
       <!-- PAGE: Dashboard -->
@@ -244,7 +246,7 @@
             <div class="countdown-badge" id="countdownBadge">refresh dalam 1 jam</div>
             <div class="scan-caption">
               <h2>Minta peserta scan QR ini</h2>
-              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai NIM/Kode yang terbuat oleh sistem, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
+              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai ID yang dibuat sistem, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
             </div>
             <div class="result-banner" id="resultBanner">
               <div class="result-icon" id="resultIcon"></div>
@@ -300,24 +302,8 @@
       <!-- PAGE: Log Harian -->
       <div class="kiosk-page" data-page="log">
         <div class="side-card kiosk-page-narrow" style="max-width:none;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div>
-              <h2 style="margin-bottom:4px;">Log Harian — <span id="tanggalHariIni"></span></h2>
-              <p class="desc" style="margin:0;">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <input type="date" id="logTanggalPicker" style="width:auto;">
-              <button class="mini-btn" id="logTanggalHariIniBtn" style="padding:9px 12px;">Hari Ini</button>
-            </div>
-          </div>
-
-          <div class="metric-row" id="logSummaryRow" style="margin:16px 0;">
-            <div class="metric-card"><div class="metric-num" id="logSumTepat">—</div><div class="metric-label">Tepat waktu</div></div>
-            <div class="metric-card"><div class="metric-num" id="logSumTerlambat">—</div><div class="metric-label">Terlambat</div></div>
-            <div class="metric-card"><div class="metric-num" id="logSumIzin">—</div><div class="metric-label">Izin/Sakit/Cuti</div></div>
-            <div class="metric-card"><div class="metric-num" id="logSumBelum">—</div><div class="metric-label">Belum absen</div></div>
-          </div>
-
+          <h2>Log Hari Ini — <span id="tanggalHariIni"></span></h2>
+          <p class="desc">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
           <div class="table-scroll">
           <table>
             <thead><tr><th>Nama</th><th>Waktu</th><th>Jenis</th><th>Status</th><th>Jarak</th></tr></thead>
@@ -331,7 +317,7 @@
       <div class="kiosk-page" data-page="peserta">
         <div class="side-card kiosk-page-narrow">
           <h2>Kelola Peserta</h2>
-          <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka.</p>
+          <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka. Admin juga bisa menandai pulang manual kalau peserta lupa scan.</p>
           <input type="text" id="newNama" placeholder="Nama" style="margin-bottom:10px;">
           <input type="text" id="newAsalKampus" placeholder="Asal Sekolah / Kampus" style="margin-bottom:10px;">
           <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
