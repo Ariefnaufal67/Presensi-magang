@@ -47,7 +47,7 @@
     if(adminQrPollTimer){ clearInterval(adminQrPollTimer); adminQrPollTimer = null; }
     currentPeserta = null; currentAdmin = null;
     whoRow.style.display = 'none';
-    document.getElementById('loginNim').value='';
+    document.getElementById('loginPesertaId').value='';
     document.getElementById('loginUser').value='';
     document.getElementById('loginPass').value='';
     document.getElementById('pesertaLoginError').innerHTML='';
@@ -177,17 +177,17 @@
     resetIzinBuktiInput();
   }
   document.getElementById('submitPesertaLogin').addEventListener('click', async ()=>{
-    const nim = document.getElementById('loginNim').value.trim();
+    const pesertaId = document.getElementById('loginPesertaId').value.trim();
     const err = document.getElementById('pesertaLoginError');
     err.innerHTML = '';
     const { ok, data } = await api('/api/login', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ role:'peserta', nim })
+      body: JSON.stringify({ role:'peserta', pesertaId })
     });
     if(ok && data.ok){
       enterPesertaSession(data.peserta);
     } else {
-      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'NIM / ID tidak ditemukan.')}</div>`;
+      err.innerHTML = `<div class="login-error">${escapeHtml((data && data.message) || 'ID Peserta tidak ditemukan.')}</div>`;
     }
   });
 

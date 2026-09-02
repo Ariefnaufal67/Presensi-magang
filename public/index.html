@@ -36,7 +36,7 @@
       <div class="login-hero">
         <div class="eyebrow">Presensi Magang · QR</div>
         <h1>Masuk untuk melanjutkan</h1>
-        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM atau ID untuk melihat kartu QR & riwayat kehadirannya.</p>
+        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan ID Peserta (dari admin) untuk melihat kartu QR & riwayat kehadirannya.</p>
       </div>
       <div class="segmented">
         <button data-mode="peserta" class="active">Peserta Magang</button>
@@ -44,11 +44,11 @@
       </div>
 
       <div class="picker" id="formPeserta">
-        <label>NIM / ID</label>
-        <input type="text" id="loginNim" placeholder="NIM, atau ID dari admin (mis. PST-1234)" class="mono" style="margin-bottom:16px;">
+        <label>ID Peserta</label>
+        <input type="text" id="loginPesertaId" placeholder="mis. PST-1234" class="mono" style="margin-bottom:16px;">
         <button class="btn" id="submitPesertaLogin">Masuk</button>
         <div id="pesertaLoginError"></div>
-        <p class="login-hint">Belum terdaftar? Minta admin menambahkanmu lewat menu "Kelola Peserta".</p>
+        <p class="login-hint">Belum terdaftar / lupa ID? Minta admin lewat menu "Kelola Peserta".</p>
       </div>
 
       <div class="picker" id="formAdmin" style="display:none;">
@@ -244,7 +244,7 @@
             <div class="countdown-badge" id="countdownBadge">refresh dalam 1 jam</div>
             <div class="scan-caption">
               <h2>Minta peserta scan QR ini</h2>
-              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai NIM/Kode yang terbuat oleh sistem, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
+              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai ID Peserta yang diberikan admin, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
             </div>
             <div class="result-banner" id="resultBanner">
               <div class="result-icon" id="resultIcon"></div>

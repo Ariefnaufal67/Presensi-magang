@@ -38,7 +38,7 @@ function wrap(fn) {
 
 // ---------- login ----------
 app.post('/api/login', wrap(async (req, res) => {
-  const { role, username, password, nim } = req.body || {};
+  const { role, username, password, pesertaId } = req.body || {};
 
   if (role === 'admin') {
     const valid = await store.verifyAdmin(username, password);
@@ -51,11 +51,11 @@ app.post('/api/login', wrap(async (req, res) => {
   }
 
   if (role === 'peserta') {
-    const p = await store.findPeserta(nim);
+    const p = await store.findPeserta(pesertaId);
     if (p) {
       res.status(200).json({ ok: true, peserta: p });
     } else {
-      res.status(404).json({ ok: false, message: 'NIM / ID tidak ditemukan. Hubungi admin.' });
+      res.status(404).json({ ok: false, message: 'ID Peserta tidak ditemukan. Hubungi admin.' });
     }
     return;
   }
