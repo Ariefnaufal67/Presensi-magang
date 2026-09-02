@@ -36,7 +36,7 @@
       <div class="login-hero">
         <div class="eyebrow">Presensi Magang · QR</div>
         <h1>Masuk untuk melanjutkan</h1>
-        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM untuk melihat kartu QR & riwayat kehadirannya.</p>
+        <p>Admin memindai kartu QR peserta di layar kiosk. Peserta masuk dengan NIM atau ID untuk melihat kartu QR & riwayat kehadirannya.</p>
       </div>
       <div class="segmented">
         <button data-mode="peserta" class="active">Peserta Magang</button>
@@ -45,7 +45,7 @@
 
       <div class="picker" id="formPeserta">
         <label>NIM / ID</label>
-        <input type="text" id="loginNim" placeholder="mis. A11.2022.001" class="mono" style="margin-bottom:16px;">
+        <input type="text" id="loginNim" placeholder="NIM, atau ID dari admin (mis. PST-1234)" class="mono" style="margin-bottom:16px;">
         <button class="btn" id="submitPesertaLogin">Masuk</button>
         <div id="pesertaLoginError"></div>
         <p class="login-hint">Belum terdaftar? Minta admin menambahkanmu lewat menu "Kelola Peserta".</p>
@@ -332,10 +332,7 @@
         <div class="side-card kiosk-page-narrow">
           <h2>Kelola Peserta</h2>
           <p class="desc">Tambahkan peserta di sini — kartu QR-nya otomatis aktif untuk login mereka.</p>
-          <div class="field-pair" style="margin-bottom:10px;">
-            <input type="text" id="newNama" placeholder="Nama">
-            <input type="text" id="newNim" placeholder="NIM / ID">
-          </div>
+          <input type="text" id="newNama" placeholder="Nama" style="margin-bottom:10px;">
           <input type="text" id="newAsalKampus" placeholder="Asal Sekolah / Kampus" style="margin-bottom:10px;">
           <button class="btn ghost" id="addPeserta" style="margin-bottom:16px;">+ Tambah Peserta</button>
           <div id="rosterList"></div>

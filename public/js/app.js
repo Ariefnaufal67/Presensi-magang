@@ -825,10 +825,12 @@
           return rows.join('');
         }
         const jarakMasuk = r.lokasiMasuk ? `${r.lokasiMasuk.jarak}m${r.lokasiMasuk.curigaPalsu ? ' ⚠️' : ''}` : '—';
-        rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td><span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span></td><td class="mono">${jarakMasuk}</td></tr>`);
+        const statusPill = `<span class="pill ${r.statusMasuk==='Tepat waktu'?'tepat':'terlambat'}">${r.statusMasuk}</span>`;
         if(r.jamPulang){
           const jarakPulang = r.lokasiPulang ? `${r.lokasiPulang.jarak}m${r.lokasiPulang.curigaPalsu ? ' ⚠️' : ''}` : (r.pulangManual ? '<span class="pill dash">manual</span>' : '—');
-          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${r.pulangManual ? '<span class="pill dash">manual</span>' : '<span class="pill dash">—</span>'}</td><td class="mono">${jarakPulang}</td></tr>`);
+          rows.push(`<tr><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamPulang}</td><td><span class="pill pulang">Pulang</span></td><td>${statusPill}</td><td class="mono">${jarakPulang}</td></tr>`);
+        } else {
+          rows.push(`<tr title="${r.lokasiMasuk && r.lokasiMasuk.curigaPalsu ? 'Pola sinyal GPS tidak wajar — kemungkinan lokasi palsu, tinjau manual' : ''}"><td>${escapeHtml(r.nama)}</td><td class="mono">${r.jamMasuk}</td><td><span class="pill masuk">Masuk</span></td><td>${statusPill}</td><td class="mono">${jarakMasuk}</td></tr>`);
         }
         return rows.join('');
       }).join('');
@@ -868,7 +870,8 @@
       const left = document.createElement('div');
       left.className = 'roster-left';
       const asalLine = p.asalKampus && p.asalKampus !== '-' ? `<span class="nim">${escapeHtml(p.asalKampus)}</span>` : '';
-      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id} · ${escapeHtml(p.nim)}</span>${asalLine}`;
+      const nimLine = p.nim && p.nim !== '-' ? ` · ${escapeHtml(p.nim)}` : '';
+      left.innerHTML = `<span>${escapeHtml(p.nama)}</span><span class="nim">${p.id}${nimLine}</span>${asalLine}`;
       row.appendChild(left);
 
       const actions = document.createElement('div');
@@ -889,15 +892,14 @@
 
   document.getElementById('addPeserta').addEventListener('click', async ()=>{
     const nama = document.getElementById('newNama').value.trim();
-    const nim = document.getElementById('newNim').value.trim();
     const asalKampus = document.getElementById('newAsalKampus').value.trim();
     if(!nama) return;
     const { ok, data } = await api('/api/roster', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ nama, nim, asalKampus })
+      body: JSON.stringify({ nama, asalKampus })
     });
     if(ok && data.ok){
-      document.getElementById('newNama').value=''; document.getElementById('newNim').value=''; document.getElementById('newAsalKampus').value='';
+      document.getElementById('newNama').value=''; document.getElementById('newAsalKampus').value='';
       renderRoster(data.roster);
     }
   });
