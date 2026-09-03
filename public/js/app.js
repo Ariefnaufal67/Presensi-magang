@@ -132,7 +132,7 @@
     document.getElementById('sidebarAvatar').textContent = currentAdmin.username.slice(0,1).toUpperCase();
     viewKiosk.classList.add('active');
     localStorage.setItem(SESSION_KEY, JSON.stringify({ role:'admin', data: admin }));
-    await renderKiosk();
+    await renderKiosk().catch(e=>console.error('renderKiosk gagal', e));
     startAdminQrPolling();
   }
   document.getElementById('submitAdminLogin').addEventListener('click', async ()=>{
@@ -637,22 +637,28 @@
   }
 
   // ---------- kiosk (admin) ----------
+  // Setiap langkah dibungkus try/catch sendiri-sendiri: kalau salah satu gagal
+  // (mis. koneksi terputus sesaat), bagian lain tetap jalan — termasuk yang
+  // paling penting, polling QR untuk peserta, yang dipanggil oleh pemanggil
+  // fungsi ini (enterAdminSession) segera setelah renderKiosk() selesai.
   async function renderKiosk(){
-    const s = await api('/api/settings');
-    if(s.ok){
-      document.getElementById('jamMasuk').value = s.data.jamMasuk;
-      document.getElementById('toleransi').value = s.data.toleransi;
-      document.getElementById('officeLat').value = s.data.officeLat;
-      document.getElementById('officeLng').value = s.data.officeLng;
-      document.getElementById('officeRadius').value = s.data.officeRadius;
-      document.getElementById('jamPulangOtomatis').value = s.data.jamPulangOtomatis || '17:00';
-      document.getElementById('pulangOtomatisAktif').value = String(!!s.data.pulangOtomatisAktif);
-    }
-    await refreshRoster();
-    await fetchAndApplyToday();
-    await refreshIzinPending();
-    await refreshStats();
-    await refreshAdminList();
+    try {
+      const s = await api('/api/settings');
+      if(s.ok){
+        document.getElementById('jamMasuk').value = s.data.jamMasuk;
+        document.getElementById('toleransi').value = s.data.toleransi;
+        document.getElementById('officeLat').value = s.data.officeLat;
+        document.getElementById('officeLng').value = s.data.officeLng;
+        document.getElementById('officeRadius').value = s.data.officeRadius;
+        document.getElementById('jamPulangOtomatis').value = s.data.jamPulangOtomatis || '17:00';
+        document.getElementById('pulangOtomatisAktif').value = String(!!s.data.pulangOtomatisAktif);
+      }
+    } catch(e){ console.error('Gagal memuat pengaturan', e); }
+    try { await refreshRoster(); } catch(e){ console.error('Gagal memuat roster', e); }
+    try { await fetchAndApplyToday(); } catch(e){ console.error('Gagal memuat log hari ini', e); }
+    try { await refreshIzinPending(); } catch(e){ console.error('Gagal memuat pengajuan izin', e); }
+    try { await refreshStats(); } catch(e){ console.error('Gagal memuat statistik', e); }
+    try { await refreshAdminList(); } catch(e){ console.error('Gagal memuat daftar admin', e); }
   }
 
   let statsPeriodDays = 14;
@@ -1083,35 +1089,43 @@
   }
 
   function renderAdminQr(token){
-    const box = document.getElementById('adminQr');
-    box.innerHTML = '';
-    new QRCode(box, { text: 'SESI|'+token, width:156, height:156, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    const codeEl = document.getElementById('adminQrCode');
+    if(codeEl) codeEl.textContent = token;
+    try {
+      const box = document.getElementById('adminQr');
+      box.innerHTML = '';
+      new QRCode(box, { text: 'SESI|'+token, width:156, height:156, colorDark:'#3A2A1C', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } catch(e){
+      console.error('Gagal membuat gambar QR, kode manual tetap tersedia.', e);
+    }
   }
 
   async function pollAdminQr(){
-    const { ok, data } = await api('/api/qr-session');
-    if(!ok) return;
-    if(data.token !== adminQrLastToken){
-      adminQrLastToken = data.token;
-      renderAdminQr(data.token);
-    }
-    const remaining = Math.max(0, Math.ceil((data.expiresAt - Date.now())/1000));
-    const ring = document.getElementById('ringProgress');
-    if(ring){
-      ring.style.strokeDasharray = RING_CIRC;
-      ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/QR_SESSION_SECONDS);
-    }
-    document.getElementById('countdownBadge').textContent = 'refresh dalam ' + formatCountdown(remaining);
-    await fetchAndApplyToday();
+    try {
+      const { ok, data } = await api('/api/qr-session');
+      if(!ok) return;
+      if(data.token !== adminQrLastToken){
+        adminQrLastToken = data.token;
+        renderAdminQr(data.token);
+      }
+      const remaining = Math.max(0, Math.ceil((data.expiresAt - Date.now())/1000));
+      const ring = document.getElementById('ringProgress');
+      if(ring){
+        ring.style.strokeDasharray = RING_CIRC;
+        ring.style.strokeDashoffset = RING_CIRC * (1 - remaining/QR_SESSION_SECONDS);
+      }
+      document.getElementById('countdownBadge').textContent = 'refresh dalam ' + formatCountdown(remaining);
+    } catch(e){ console.error('Gagal memperbarui kode QR', e); }
+    try { await fetchAndApplyToday(); } catch(e){ console.error('Gagal memuat log terbaru', e); }
     izinPollCounter++;
     if(izinPollCounter >= 5){ // cek pengajuan izin baru tiap ~5 detik, bukan tiap detik
       izinPollCounter = 0;
-      await refreshIzinPending();
+      try { await refreshIzinPending(); } catch(e){ console.error('Gagal memuat pengajuan izin', e); }
     }
     statsPollCounter++;
     if(statsPollCounter >= 10){ // cek statistik & grafik kehadiran tiap ~10 detik
       statsPollCounter = 0;
-      await refreshStats();
+      try { await refreshStats(); } catch(e){ console.error('Gagal memuat statistik', e); }
     }
   }
 

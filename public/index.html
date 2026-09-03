@@ -183,7 +183,7 @@
         </button>
         <button class="kiosk-nav-item" data-page="log">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>
-          Log Kehadiran
+          Log Harian
         </button>
         <button class="kiosk-nav-item" data-page="peserta">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.7 14.3c2.6.5 4.3 2.5 4.3 5.7"/></svg>
@@ -248,9 +248,10 @@
               <div id="adminQr"></div>
             </div>
             <div class="countdown-badge" id="countdownBadge">refresh dalam 1 jam</div>
+            <div class="admin-qr-code" id="adminQrCode">— — — — · — — — —</div>
             <div class="scan-caption">
               <h2>Minta peserta scan QR ini</h2>
-              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai ID Peserta yang diberikan admin, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka.</p>
+              <p>Kode berganti otomatis tiap 1 jam. Peserta login pakai ID Peserta yang diberikan admin, lalu scan dari HP mereka sendiri — sistem juga memeriksa lokasi GPS mereka. Kalau kamera peserta bermasalah, kode di atas bisa diketik manual.</p>
             </div>
             <div class="result-banner" id="resultBanner">
               <div class="result-icon" id="resultIcon"></div>
@@ -303,12 +304,12 @@
         </div>
       </div>
 
-      <!-- PAGE: Log Kehadiran -->
+      <!-- PAGE: Log Harian -->
       <div class="kiosk-page" data-page="log">
         <div class="side-card kiosk-page-narrow" style="max-width:none;">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
             <div>
-              <h2 style="margin-bottom:4px;">Log Kehadiran — <span id="tanggalHariIni"></span></h2>
+              <h2 style="margin-bottom:4px;">Log Harian — <span id="tanggalHariIni"></span></h2>
               <p class="desc" style="margin:0;">Tercatat otomatis dari hasil scan kartu, atau ditandai manual oleh admin.</p>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
