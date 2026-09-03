@@ -834,7 +834,7 @@
     document.getElementById('tanggalHariIni').textContent = formatTanggal(tanggal);
     const picker = document.getElementById('logTanggalPicker');
     if(picker && picker.value !== tanggal) picker.value = tanggal;
-    renderLog(log || []);
+    renderLog(log || [], tanggal);
   }
 
   // Dipanggil tiap detik lewat polling (live) — selalu memperbarui kartu ringkasan
@@ -858,7 +858,7 @@
     renderLogTable(data.tanggal, data.log || []);
   }
 
-  function renderLog(log){
+  function renderLog(log, tanggal){
     const body = document.getElementById('logBody');
     if(log.length===0){
       body.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada aktivitas pada tanggal ini.</td></tr>';
@@ -889,8 +889,15 @@
       sumTepat.textContent = tepat;
       document.getElementById('logSumTerlambat').textContent = terlambat;
       document.getElementById('logSumIzin').textContent = izin.length;
-      const belum = Math.max(rosterCache.length - masuk - izin.length, 0);
-      document.getElementById('logSumBelum').textContent = rosterCache.length ? belum : '—';
+      // "Belum absen" hanya menghitung peserta yang SUDAH terdaftar pada tanggal
+      // yang sedang dilihat — peserta yang baru ditambahkan admin setelah
+      // tanggal itu tidak ikut dianggap "belum absen" di hari sebelum mereka
+      // terdaftar (biar rekap histori tidak membingungkan admin).
+      const eligibleRoster = tanggal
+        ? rosterCache.filter(p => !p.tanggalDaftar || p.tanggalDaftar <= tanggal)
+        : rosterCache;
+      const belum = Math.max(eligibleRoster.length - masuk - izin.length, 0);
+      document.getElementById('logSumBelum').textContent = eligibleRoster.length ? belum : '—';
     }
   }
 
